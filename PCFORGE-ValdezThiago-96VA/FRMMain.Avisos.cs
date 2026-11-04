@@ -1,5 +1,6 @@
 using BE;
 using BLL;
+using PCFORGE_ValdezThiago_96VA.UI;
 using SER;
 using System;
 using System.Collections.Generic;
@@ -12,30 +13,27 @@ namespace PCFORGE_ValdezThiago_96VA
 {
     public partial class FRMMain
     {
-        private const int IntervaloAvisosMs = 90 * 1000;
-        private const int DetallesPorAviso = 3;
+        private const int IntervaloAvisosMs = 30 * 1000;
 
         private readonly Dictionary<string, Action> _navegacion = new Dictionary<string, Action>(StringComparer.OrdinalIgnoreCase);
-        private readonly AvisosBLL06AV _avisosBLL = new AvisosBLL06AV();
-        private List<Aviso06AV> _avisos = new List<Aviso06AV>();
+        private readonly AvisosBLL06AV _detectorAvisos = new AvisosBLL06AV();
+        private readonly NotificacionesBLL06AV _notificacionesBLL = new NotificacionesBLL06AV();
+        private List<Notificacion06AV> _notificaciones = new List<Notificacion06AV>();
+        private int _ultimaNotificacionVista = -1;
         private Button btnAvisos;
-        private ContextMenuStrip cmsAvisos;
+        private ToolStripDropDown _popupAvisos;
+        private ToolStripControlHost _hostAvisos;
+        private PanelNotificaciones06AV _panelAvisos;
+        private ToastNotificacion06AV _toastAvisos;
         private Timer _timerAvisos;
 
-        private static bool VeAvisos()
-        {
-            try
-            {
-                var s = UsuarioSesion06AV.Instancia();
-                return s.TienePermiso(PatenteEnum06AV.RegistrarOrdenCompra) || s.TienePermiso(PatenteEnum06AV.AprobarCotizacion) ||
-                       s.TienePermiso(PatenteEnum06AV.GestionarCompras) || s.TienePermiso(PatenteEnum06AV.PagarProveedores);
-            }
-            catch { return false; }
-        }
+        private int NoLeidas => _notificaciones.Count(n => !n.Leida);
 
         private void CrearBotonAvisos()
         {
-            if (btnAvisos != null || !VeAvisos()) return;
+            if (btnAvisos != null) return;
+            try { if (UsuarioSesion06AV.Instancia().UsuarioActual == null) return; }
+            catch { return; }
 
             btnAvisos = new Button
             {
@@ -50,24 +48,42 @@ namespace PCFORGE_ValdezThiago_96VA
             btnAvisos.Click += (s, e) => { ActualizarAvisos(); MostrarAvisos(); };
             btnAvisos.Paint += DibujarInsignia;
 
-            cmsAvisos = new ContextMenuStrip { ShowImageMargin = false, Padding = new Padding(4) };
+            _panelAvisos = new PanelNotificaciones06AV();
+            _panelAvisos.NotificacionElegida += AbrirNotificacion;
+            _panelAvisos.NotificacionLeida += n => MarcarLeidas(new[] { n });
+            _panelAvisos.TodasLeidas += () => MarcarLeidas(_notificaciones.Where(n => !n.Leida).ToList());
+
+            _hostAvisos = new ToolStripControlHost(_panelAvisos) { Margin = Padding.Empty, Padding = Padding.Empty, AutoSize = false };
+            _popupAvisos = new ToolStripDropDown();
+            _popupAvisos.Items.Add(_hostAvisos);
+            RenderizadorMenu06AV.Aplicar(_popupAvisos);
+            _popupAvisos.Padding = new Padding(1);
+
+            _toastAvisos = new ToastNotificacion06AV { Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
+            _toastAvisos.Click += (s, e) => { _toastAvisos.Ocultar(); MostrarAvisos(); };
+            Controls.Add(_toastAvisos);
+            UbicarToast();
+            Resize += (s, e) => UbicarToast();
 
             flpTopActions.Controls.Add(btnAvisos);
             flpTopActions.Controls.SetChildIndex(btnAvisos, 0);
             ActualizarTooltipAvisos();
         }
 
+        private void UbicarToast()
+        {
+            if (_toastAvisos == null) return;
+            _toastAvisos.Location = new Point(ClientSize.Width - _toastAvisos.Width - 24, ClientSize.Height - _toastAvisos.Height - 24);
+        }
+
         private void TematizarBotonAvisos()
         {
             if (btnAvisos == null) return;
-            ConfigurarBotonTopbar(btnAvisos, Tema.FondoElevado, Tema.Acero700);
-            btnAvisos.ForeColor = Tema.EsOscuro ? Tema.Acero200 : Tema.Acero700;
+            ConfigurarBotonTopbar(btnAvisos, Tema.FondoSidebar, Tema.Texto);
             btnAvisos.Font = new Font("Segoe MDL2 Assets", 12f);
-            if (cmsAvisos != null)
-            {
-                cmsAvisos.BackColor = Tema.FondoElevado;
-                cmsAvisos.ForeColor = Tema.Texto;
-            }
+            if (_popupAvisos != null) RenderizadorMenu06AV.Aplicar(_popupAvisos);
+            _panelAvisos?.Invalidate();
+            _toastAvisos?.Invalidate();
             btnAvisos.Invalidate();
         }
 
@@ -75,8 +91,9 @@ namespace PCFORGE_ValdezThiago_96VA
         {
             if (btnAvisos == null) return;
             var t = GestorIdioma06AV.Instancia;
-            int total = _avisos.Count;
-            toolTipMain.SetToolTip(btnAvisos, total == 0 ? t.Obtener("aviso_ninguno") : t.Obtener("aviso_tooltip", total));
+            int total = NoLeidas;
+            toolTipMain.SetToolTip(btnAvisos, total == 0 ? t.Obtener("notif_ninguna_nueva") : t.Obtener("notif_tooltip", total));
+            _panelAvisos?.Invalidate();
         }
 
         private void IniciarAvisos()
@@ -89,26 +106,42 @@ namespace PCFORGE_ValdezThiago_96VA
 
             Shown += (s, e) =>
             {
+                _detectorAvisos.Detectar(forzar: true);
                 ActualizarAvisos();
-                if (_avisos.Count > 0) BeginInvoke((Action)MostrarAvisos);
             };
         }
 
         private void ActualizarAvisos()
         {
             if (btnAvisos == null) return;
-            try { _avisos = _avisosBLL.Obtener() ?? new List<Aviso06AV>(); }
-            catch { _avisos = new List<Aviso06AV>(); }
+            try { _detectorAvisos.Detectar(); } catch { }
+            try { _notificaciones = _notificacionesBLL.ObtenerParaUsuario(); }
+            catch { return; }
+
+            var nuevas = _notificaciones.Where(n => !n.Leida && n.Id > _ultimaNotificacionVista).ToList();
+            // La primera carga solo marca la referencia, salvo que haya pendientes: entonces se avisa una vez al entrar.
+            if (nuevas.Count > 0 && _toastAvisos != null && !(_popupAvisos?.Visible ?? false))
+                _toastAvisos.Mostrar(nuevas[0], nuevas.Count - 1);
+            if (_notificaciones.Count > 0)
+                _ultimaNotificacionVista = Math.Max(_ultimaNotificacionVista, _notificaciones.Max(n => n.Id));
+
+            if (_popupAvisos != null && _popupAvisos.Visible) CargarPanelAvisos();
             ActualizarTooltipAvisos();
             btnAvisos.Invalidate();
         }
 
+        private void CargarPanelAvisos()
+        {
+            _panelAvisos.Cargar(_notificaciones);
+            _hostAvisos.Size = _panelAvisos.Size;
+        }
+
         private void DibujarInsignia(object sender, PaintEventArgs e)
         {
-            int n = _avisos.Count;
+            int n = NoLeidas;
             if (n == 0) return;
             string texto = n > 9 ? "9+" : n.ToString();
-            bool urgente = _avisos.Any(a => a.Urgente);
+            bool urgente = _notificaciones.Any(a => !a.Leida && a.Urgente);
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             using (var fuente = new Font("Segoe UI", 6.75f, FontStyle.Bold))
@@ -118,73 +151,37 @@ namespace PCFORGE_ValdezThiago_96VA
                 var r = new Rectangle(btnAvisos.Width - ancho - 2, 1, ancho, 15);
                 using (var b = new SolidBrush(urgente ? Tema.Peligro : Tema.Acento))
                     g.FillEllipse(b, r);
-                TextRenderer.DrawText(g, texto, fuente, r, Color.White,
+                TextRenderer.DrawText(g, texto, fuente, r, urgente || !Tema.EsOscuro ? Color.White : Tema.Grafito950,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
             }
         }
 
         private void MostrarAvisos()
         {
-            if (btnAvisos == null || cmsAvisos == null || !btnAvisos.IsHandleCreated) return;
-            var t = GestorIdioma06AV.Instancia;
-
-            foreach (ToolStripItem i in cmsAvisos.Items.Cast<ToolStripItem>().ToList()) i.Dispose();
-            cmsAvisos.Items.Clear();
-            cmsAvisos.BackColor = Tema.FondoElevado;
-
-            var titulo = new ToolStripLabel(t.Obtener("aviso_titulo").ToUpper())
-            {
-                Font = new Font("Segoe UI Semibold", 8.25f, FontStyle.Bold),
-                ForeColor = Tema.Primario,
-                Margin = new Padding(6, 4, 6, 4)
-            };
-            cmsAvisos.Items.Add(titulo);
-
-            if (_avisos.Count == 0)
-            {
-                cmsAvisos.Items.Add(new ToolStripLabel("✓  " + t.Obtener("aviso_ninguno"))
-                {
-                    ForeColor = Tema.Exito, Font = Tema.FuenteRegular, Margin = new Padding(6, 2, 16, 6)
-                });
-            }
-
-            foreach (Aviso06AV a in _avisos)
-            {
-                var aviso = a;
-                var item = new ToolStripMenuItem((a.Urgente ? "●  " : "○  ") + t.Obtener("aviso_" + a.Tipo, a.Cantidad))
-                {
-                    Font = Tema.FuenteBold,
-                    ForeColor = a.Urgente ? Tema.Peligro : Tema.Texto,
-                    ToolTipText = t.Obtener("aviso_ir_" + a.Tipo)
-                };
-                item.Click += (s, e) => Navegar(aviso.Tipo);
-                cmsAvisos.Items.Add(item);
-
-                foreach (string d in a.Detalle.Take(DetallesPorAviso))
-                    cmsAvisos.Items.Add(new ToolStripLabel("      " + d)
-                    {
-                        Font = new Font("Segoe UI", 8.5f), ForeColor = Tema.TextoSuave, Margin = new Padding(6, 0, 16, 0)
-                    });
-                if (a.Cantidad > DetallesPorAviso)
-                    cmsAvisos.Items.Add(new ToolStripLabel("      " + t.Obtener("aviso_y_mas", a.Cantidad - DetallesPorAviso))
-                    {
-                        Font = new Font("Segoe UI", 8.25f, FontStyle.Italic), ForeColor = Tema.TextoSuave, Margin = new Padding(6, 0, 16, 2)
-                    });
-            }
-
-            cmsAvisos.Items.Add(new ToolStripSeparator());
-            var refrescar = new ToolStripMenuItem("⟳  " + t.Obtener("pcf_actualizar")) { ForeColor = Tema.TextoSuave, Font = Tema.FuenteRegular };
-            refrescar.Click += (s, e) => { ActualizarAvisos(); BeginInvoke((Action)MostrarAvisos); };
-            cmsAvisos.Items.Add(refrescar);
-
-            cmsAvisos.Show(btnAvisos, new Point(btnAvisos.Width, btnAvisos.Height + 2), ToolStripDropDownDirection.BelowLeft);
+            if (btnAvisos == null || _popupAvisos == null || !btnAvisos.IsHandleCreated) return;
+            _toastAvisos?.Ocultar();
+            CargarPanelAvisos();
+            _popupAvisos.Show(btnAvisos, new Point(btnAvisos.Width, btnAvisos.Height + 6), ToolStripDropDownDirection.BelowLeft);
         }
 
-        private void Navegar(TipoAviso06AV tipo)
+        private void MarcarLeidas(IList<Notificacion06AV> notificaciones)
         {
-            string destino = tipo == TipoAviso06AV.CotizacionesPorAprobar ? "pcf_menu_cotizaciones" : "pcf_menu_compras";
-            if (!_navegacion.TryGetValue(destino, out Action ir) && !_navegacion.TryGetValue("pcf_menu_compras", out ir)) return;
-            ir();
+            var pendientes = notificaciones.Where(n => !n.Leida).ToList();
+            if (pendientes.Count == 0) return;
+            try { _notificacionesBLL.MarcarLeidas(pendientes.Select(n => n.Id)); }
+            catch { return; }
+            foreach (var n in pendientes) n.Leida = true;
+
+            if (_popupAvisos.Visible) CargarPanelAvisos();
+            ActualizarTooltipAvisos();
+            btnAvisos.Invalidate();
+        }
+
+        private void AbrirNotificacion(Notificacion06AV n)
+        {
+            MarcarLeidas(new[] { n });
+            _popupAvisos.Close();
+            if (!string.IsNullOrEmpty(n.Destino) && _navegacion.TryGetValue(n.Destino, out Action ir)) ir();
         }
     }
 }

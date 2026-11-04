@@ -49,6 +49,7 @@
     <Compile Include="ReglasCompatibilidadDAL06AV.cs" />
     <Compile Include="ProveedoresDAL06AV.cs" />
     <Compile Include="LineasEnsamblajeDAL06AV.cs" />
+    <Compile Include="NotificacionesDAL06AV.cs" />
     <Compile Include="VentasDAL06AV.cs" />
     <Compile Include="ReportesDAL06AV.cs" />
     <Compile Include="ProduccionDAL06AV.cs" />

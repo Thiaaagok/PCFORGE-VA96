@@ -5,7 +5,7 @@ namespace PCFORGE_ValdezThiago_96VA
 {
     internal static class Tema
     {
-        private static bool _oscuro = false;
+        private static bool _oscuro = true;
         public static bool EsOscuro => _oscuro;
 
         public static event System.Action TemaChanged;
@@ -23,25 +23,25 @@ namespace PCFORGE_ValdezThiago_96VA
             TemaChanged?.Invoke();
         }
 
-        public static readonly Color Grafito950 = Color.FromArgb(2, 6, 23);
-        public static readonly Color Grafito900 = Color.FromArgb(15, 23, 42);
-        public static readonly Color Grafito800 = Color.FromArgb(30, 41, 59);
-        public static readonly Color Acero700   = Color.FromArgb(51, 65, 85);
-        public static readonly Color Acero500   = Color.FromArgb(100, 116, 139);
-        public static readonly Color Acero300   = Color.FromArgb(203, 213, 225);
-        public static readonly Color Acero200   = Color.FromArgb(226, 232, 240);
-        public static readonly Color Acero100   = Color.FromArgb(241, 245, 249);
-        public static readonly Color Acero50    = Color.FromArgb(248, 250, 252);
+        public static readonly Color Grafito950 = Color.FromArgb(22, 9, 3);
+        public static readonly Color Grafito900 = Color.FromArgb(34, 14, 5);
+        public static readonly Color Grafito800 = Color.FromArgb(52, 22, 8);
+        public static readonly Color Acero700   = Color.FromArgb(80, 36, 14);
+        public static readonly Color Acero500   = Color.FromArgb(160, 112, 82);
+        public static readonly Color Acero300   = Color.FromArgb(232, 196, 162);
+        public static readonly Color Acero200   = Color.FromArgb(246, 224, 200);
+        public static readonly Color Acero100   = Color.FromArgb(252, 240, 226);
+        public static readonly Color Acero50    = Color.FromArgb(255, 248, 240);
 
-        public static readonly Color Cian50  = Color.FromArgb(236, 254, 255);
-        public static readonly Color Cian100 = Color.FromArgb(207, 250, 254);
-        public static readonly Color Cian400 = Color.FromArgb(34, 211, 238);
-        public static readonly Color Cian600 = Color.FromArgb(8, 145, 178);
-        public static readonly Color Cian700 = Color.FromArgb(14, 116, 144);
+        public static readonly Color Cian50  = Color.FromArgb(254, 241, 226);
+        public static readonly Color Cian100 = Color.FromArgb(253, 222, 186);
+        public static readonly Color Cian400 = Color.FromArgb(251, 186, 114);
+        public static readonly Color Cian600 = Color.FromArgb(202, 83, 16);
+        public static readonly Color Cian700 = Color.FromArgb(187, 77, 0);
 
-        public static readonly Color Naranja50  = Color.FromArgb(255, 247, 237);
-        public static readonly Color Naranja500 = Color.FromArgb(249, 115, 22);
-        public static readonly Color Naranja600 = Color.FromArgb(234, 88, 12);
+        public static readonly Color Naranja50  = Color.FromArgb(250, 228, 220);
+        public static readonly Color Naranja500 = Color.FromArgb(143, 37, 12);
+        public static readonly Color Naranja600 = Color.FromArgb(105, 30, 6);
 
         public static readonly Color Verde50  = Color.FromArgb(240, 253, 244);
         public static readonly Color Verde600 = Color.FromArgb(22, 163, 74);
@@ -52,10 +52,10 @@ namespace PCFORGE_ValdezThiago_96VA
         public static readonly Color Rojo600  = Color.FromArgb(220, 38, 38);
         public static readonly Color Rojo700  = Color.FromArgb(185, 28, 28);
 
-        private static readonly Color OscuroAmber  = Color.FromArgb(45, 35, 5);
+        private static readonly Color OscuroAmber  = Color.FromArgb(58, 34, 6);
         private static readonly Color OscuroVerde  = Color.FromArgb(5, 40, 20);
         private static readonly Color OscuroRojo   = Color.FromArgb(50, 10, 10);
-        private static readonly Color OscuroCian   = Color.FromArgb(5, 35, 45);
+        private static readonly Color OscuroCian   = Color.FromArgb(70, 30, 8);
 
         public static readonly Color Azul50  = Cian50;
         public static readonly Color Azul400 = Cian400;
@@ -75,11 +75,11 @@ namespace PCFORGE_ValdezThiago_96VA
         public static Color TextoSuave    => _oscuro ? Acero500              : Acero500;
         public static Color TextoInvertido => Color.White;
         public static Color Borde         => _oscuro ? Acero700              : Acero200;
-        public static Color Primario      => _oscuro ? Cian400               : Cian600;
-        public static Color PrimarioHover => _oscuro ? Cian600               : Cian700;
+        public static Color Primario      => _oscuro ? Cian600               : Cian700;
+        public static Color PrimarioHover => _oscuro ? Cian700               : Naranja500;
         public static Color PrimarioSuave => _oscuro ? OscuroCian            : Cian50;
-        public static Color Acento        => Naranja500;
-        public static Color AcentoHover   => Naranja600;
+        public static Color Acento        => _oscuro ? Cian400               : Naranja500;
+        public static Color AcentoHover   => _oscuro ? Color.FromArgb(252, 202, 146) : Naranja600;
         public static Color AcentoSuave   => _oscuro ? OscuroAmber           : Naranja50;
         public static Color Exito         => _oscuro ? Verde600              : Verde700;
         public static Color ExitoSuave    => _oscuro ? OscuroVerde           : Verde50;
@@ -90,6 +90,11 @@ namespace PCFORGE_ValdezThiago_96VA
         public static Color PeligroSuave  => _oscuro ? OscuroRojo            : Rojo50;
         public static Color Seleccion     => _oscuro ? Acero700              : Cian100;
         public static Color FondoCabecera => _oscuro ? Acero700              : Grafito900;
+        public static Color FondoSidebar  => _oscuro ? Color.FromArgb(44, 17, 7)  : Color.White;
+        public static Color BordeSidebar  => _oscuro ? Color.FromArgb(68, 29, 12) : Acero200;
+        public static Color SidebarActivo => _oscuro ? Color.FromArgb(76, 32, 12) : Cian50;
+        public static Color SidebarHover  => _oscuro ? Color.FromArgb(58, 24, 10) : Acero50;
+        public static Color SidebarLinea  => _oscuro ? Color.FromArgb(96, 50, 30) : Acero300;
 
         public static readonly Font FuenteRegular = new Font("Segoe UI", 9.5f, FontStyle.Regular);
         public static readonly Font FuenteBold    = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
@@ -149,7 +154,7 @@ namespace PCFORGE_ValdezThiago_96VA
 
         public static void AplicarBotonAcento(Button button)
         {
-            AplicarBoton(button, Acento, TextoInvertido, AcentoHover);
+            AplicarBoton(button, Acento, _oscuro ? Grafito950 : TextoInvertido, AcentoHover);
             button.FlatAppearance.BorderColor = Acento;
         }
 

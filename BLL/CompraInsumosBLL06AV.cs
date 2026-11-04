@@ -110,6 +110,8 @@ namespace BLL
             catch (Exception ex) { throw new AccesoDatosException06AV("No se pudo registrar la orden de compra.", ex); }
 
             AuditoriaPcFactory06AV.Alta($"Orden de compra #{oc.NumeroCompra} ({faltantes.Count} comp.)", ModuloBitacora.Compras);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.OrdenCompraRegistrada, PatenteEnum06AV.GestionarCompras,
+                NotificacionesBLL06AV.DestinoCompras, oc.NumeroCompra, faltantes.Count);
             return oc;
         }
 
@@ -148,6 +150,8 @@ namespace BLL
             catch (Exception ex) { throw new AccesoDatosException06AV("No se pudo registrar la cotización.", ex); }
 
             AuditoriaPcFactory06AV.Alta($"Cotización {cot.Numero} → proveedor {proveedor.Nombre} (OC #{oc.NumeroCompra})", ModuloBitacora.Compras);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.CotizacionRegistrada, PatenteEnum06AV.AprobarCotizacion,
+                NotificacionesBLL06AV.DestinoCotizaciones, oc.NumeroCompra, proveedor.Nombre, cot.Costo.ToString("C0"));
             return cot;
         }
 
@@ -179,6 +183,8 @@ namespace BLL
             catch (Exception ex) { throw new AccesoDatosException06AV("No se pudo aprobar la cotización.", ex); }
 
             AuditoriaPcFactory06AV.Modificacion($"Cotización {numeroCotizacion} aprobada por {gerente.Login}", ModuloBitacora.Compras);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.CotizacionAprobada, PatenteEnum06AV.RegistrarOrdenCompra,
+                NotificacionesBLL06AV.DestinoCompras, orden.NumeroCompra, cot.Proveedor?.Nombre ?? "—");
             cot.Estado = EstadoCotizacion06AV.Aprobado;
             cot.GerenteAprobador = gerente;
             return cot;
@@ -197,6 +203,8 @@ namespace BLL
             catch (Exception ex) { throw new AccesoDatosException06AV("No se pudo desaprobar la cotización.", ex); }
 
             AuditoriaPcFactory06AV.Modificacion($"Cotización {numeroCotizacion} desaprobada por {gerente.Login}", ModuloBitacora.Compras);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.CotizacionRechazada, PatenteEnum06AV.RegistrarOrdenCompra,
+                NotificacionesBLL06AV.DestinoCompras, numeroCotizacion, cot.Proveedor?.Nombre ?? "—");
         }
 
         public List<DetalleComponente06AV> ObtenerPendienteDeRecibir(string idOrdenCompra)
@@ -352,6 +360,8 @@ namespace BLL
                 $"Recepción {factura.NumeroFactura} (OC #{oc.NumeroCompra}, {recibidos.Sum(d => d.Cantidad)} u." +
                 (completa ? ", completa)" : ", parcial)"),
                 ModuloBitacora.Compras);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.MercaderiaRecibida, PatenteEnum06AV.PagarProveedores,
+                NotificacionesBLL06AV.DestinoCompras, oc.NumeroCompra, recibidos.Sum(d => d.Cantidad));
 
             return factura;
         }
@@ -379,6 +389,8 @@ namespace BLL
             catch (Exception ex) { throw new AccesoDatosException06AV("No se pudo anular la orden de compra.", ex); }
 
             AuditoriaPcFactory06AV.Baja($"Orden de compra #{oc.NumeroCompra} anulada: {motivo.Trim()}", ModuloBitacora.Compras);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.OrdenCompraAnulada, PatenteEnum06AV.GestionarCompras,
+                NotificacionesBLL06AV.DestinoCompras, oc.NumeroCompra, motivo.Trim());
         }
 
         public void CerrarConFaltante(string idOrdenCompra, string motivo)

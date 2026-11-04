@@ -120,7 +120,6 @@ namespace PCFORGE_ValdezThiago_96VA
             this.pnlTopBar.Size = new System.Drawing.Size(1300, 56);
             this.pnlTopBar.TabIndex = 0;
             this.flpTopActions.Controls.Add(this.btnIdioma);
-            this.flpTopActions.Controls.Add(this.panel4);
             this.flpTopActions.Controls.Add(this.btnCerrarSesion);
             this.flpTopActions.AutoSize = true;
             this.flpTopActions.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
@@ -145,10 +144,11 @@ namespace PCFORGE_ValdezThiago_96VA
             this.panel4.Controls.Add(this.lblUsuario);
             this.panel4.Controls.Add(this.lblRol);
             this.panel4.Controls.Add(this.opcionesUsuarioBTN);
-            this.panel4.Location = new System.Drawing.Point(60, 10);
+            this.panel4.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panel4.Location = new System.Drawing.Point(16, 22);
             this.panel4.Margin = new System.Windows.Forms.Padding(0);
             this.panel4.Name = "panel4";
-            this.panel4.Size = new System.Drawing.Size(188, 40);
+            this.panel4.Size = new System.Drawing.Size(192, 64);
             this.panel4.TabIndex = 2;
             this.lblAvatar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(145)))), ((int)(((byte)(204)))));
             this.lblAvatar.Font = new System.Drawing.Font("Segoe UI Semibold", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -225,6 +225,7 @@ namespace PCFORGE_ValdezThiago_96VA
             this.pnlSidebar.Controls.Add(this.flpModulos);
             this.pnlSidebar.Controls.Add(this.lblMenuPrincipal);
             this.pnlSidebar.Controls.Add(this.lblSidebarFooter);
+            this.pnlSidebar.Controls.Add(this.panel4);
             this.pnlSidebar.Dock = System.Windows.Forms.DockStyle.Left;
             this.pnlSidebar.Location = new System.Drawing.Point(0, 0);
             this.pnlSidebar.Name = "pnlSidebar";

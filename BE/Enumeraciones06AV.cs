@@ -80,13 +80,25 @@ namespace BE
         CerradaConFaltante
     }
 
-    public enum TipoAviso06AV
+    // Se persiste el número en Notificaciones.Tipo: no reordenar, agregar al final.
+    public enum TipoNotificacion06AV
     {
-        BajoStock,
-        CotizacionesPorAprobar,
-        CotizacionesRechazadas,
-        OrdenesAtrasadas,
-        PagosPendientes
+        VentaRegistrada = 1,
+        VentaAnulada = 2,
+        OrdenProduccionCreada = 3,
+        ComputadoraLista = 4,
+        ControlCalidadRechazado = 5,
+        EntregaRegistrada = 6,
+        OrdenCompraRegistrada = 7,
+        CotizacionRegistrada = 8,
+        CotizacionAprobada = 9,
+        CotizacionRechazada = 10,
+        MercaderiaRecibida = 11,
+        OrdenCompraAnulada = 12,
+        StockBajo = 20,
+        OrdenCompraAtrasada = 21,
+        ProduccionAtrasada = 22,
+        EntregaVencida = 23
     }
 
     /// <summary>

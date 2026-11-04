@@ -3,140 +3,97 @@ using MPP;
 using SER;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace BLL
 {
+    /// <summary>
+    /// Detecta situaciones que no nacen de una acción puntual (atrasos, stock bajo) y las
+    /// publica como notificación una sola vez, gracias a la clave única de cada una.
+    /// </summary>
     public class AvisosBLL06AV
     {
+        private static readonly TimeSpan Intervalo = TimeSpan.FromMinutes(5);
+        private static DateTime _ultimaDeteccion = DateTime.MinValue;
+
         private readonly ComprasMPP06AV _compras = new ComprasMPP06AV();
         private readonly ComponentesMPP06AV _componentes = new ComponentesMPP06AV();
+        private readonly VentasMPP06AV _ventas = new VentasMPP06AV();
+        private readonly ProduccionMPP06AV _produccion = new ProduccionMPP06AV();
 
-        public List<Aviso06AV> Obtener()
+        public void Detectar(bool forzar = false)
         {
-            var avisos = new List<Aviso06AV>();
-            UsuarioSesion06AV sesion;
-            try { sesion = UsuarioSesion06AV.Instancia(); }
-            catch { return avisos; }
-            if (sesion?.UsuarioActual == null) return avisos;
+            if (!forzar && DateTime.Now - _ultimaDeteccion < Intervalo) return;
+            _ultimaDeteccion = DateTime.Now;
 
-            bool repositor = sesion.TienePermiso(PatenteEnum06AV.RegistrarOrdenCompra);
-            bool gerente = sesion.TienePermiso(PatenteEnum06AV.AprobarCotizacion);
-            bool compras = sesion.TienePermiso(PatenteEnum06AV.GestionarCompras);
-            bool pagos = sesion.TienePermiso(PatenteEnum06AV.PagarProveedores);
-            if (!repositor && !gerente && !compras && !pagos) return avisos;
-
-            List<OrdenCompra06AV> ordenes;
-            List<PedidoCotizacion06AV> cotizaciones;
             try
             {
-                ordenes = _compras.ObtenerOrdenesCompra();
-                cotizaciones = _compras.ObtenerCotizaciones();
+                if (UsuarioSesion06AV.Instancia()?.UsuarioActual == null) return;
             }
-            catch { return avisos; }
+            catch { return; }
 
-            if (repositor) Agregar(avisos, BajoStock(ordenes));
-            if (gerente) Agregar(avisos, PorAprobar(ordenes, cotizaciones));
-            if (repositor) Agregar(avisos, Rechazadas(ordenes, cotizaciones));
-            if (compras || repositor || gerente) Agregar(avisos, Atrasadas(ordenes));
-            if (pagos) Agregar(avisos, PagosPendientes(ordenes));
-            return avisos;
+            List<OrdenCompra06AV> ordenes = Leer(() => _compras.ObtenerOrdenesCompra());
+            StockBajo(ordenes);
+            ComprasAtrasadas(ordenes);
+            ProduccionAtrasada(Leer(() => _produccion.ObtenerTodas()));
+            EntregasVencidas(Leer(() => _ventas.ObtenerTodas()));
         }
 
-        private static void Agregar(List<Aviso06AV> avisos, Aviso06AV aviso)
+        private static List<T> Leer<T>(Func<List<T>> lectura)
         {
-            if (aviso != null && aviso.Cantidad > 0) avisos.Add(aviso);
+            try { return lectura() ?? new List<T>(); }
+            catch { return new List<T>(); }
         }
 
-        private Aviso06AV BajoStock(List<OrdenCompra06AV> ordenes)
+        private void StockBajo(List<OrdenCompra06AV> ordenes)
         {
-            List<Componente06AV> bajos;
-            try { bajos = _componentes.ObtenerBajoStock(); }
-            catch { return null; }
+            List<Componente06AV> bajos = Leer(() => _componentes.ObtenerBajoStock());
             var enCurso = new HashSet<string>(
                 ordenes.Where(o => o.EnCurso).SelectMany(o => o.ComponentesFaltantes)
                        .Where(d => d.Componente != null).Select(d => d.Componente.Codigo),
                 StringComparer.OrdinalIgnoreCase);
-            var sinPedir = bajos.Where(c => !c.BajaLogica && !enCurso.Contains(c.Codigo))
-                                .OrderBy(c => c.Stock - c.StockMinimo).ToList();
-            return new Aviso06AV
-            {
-                Tipo = TipoAviso06AV.BajoStock,
-                Cantidad = sinPedir.Count,
-                Urgente = sinPedir.Any(c => c.Stock <= 0),
-                Detalle = sinPedir.Take(6).Select(c => $"{c.Descripcion} ({c.Stock}/{c.StockMinimo})").ToList()
-            };
+
+            // Una vez por semana por componente mientras siga bajo y sin pedir.
+            var cal = CultureInfo.InvariantCulture.Calendar;
+            string semana = DateTime.Today.Year + "-" + cal.GetWeekOfYear(DateTime.Today, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
+
+            foreach (var c in bajos.Where(c => !c.BajaLogica && !enCurso.Contains(c.Codigo)))
+                NotificacionesBLL06AV.PublicarUnica($"stock:{c.Codigo}:{semana}", TipoNotificacion06AV.StockBajo,
+                    PatenteEnum06AV.RegistrarOrdenCompra, NotificacionesBLL06AV.DestinoCompras,
+                    c.Descripcion, c.Stock, c.StockMinimo);
         }
 
-        private static Aviso06AV PorAprobar(List<OrdenCompra06AV> ordenes, List<PedidoCotizacion06AV> cotizaciones)
+        private static void ComprasAtrasadas(List<OrdenCompra06AV> ordenes)
         {
-            var pendientes = ordenes.Where(o => o.Estado == EstadoOrdenCompra06AV.Pendiente).ToDictionary(o => o.Id);
-            var lista = cotizaciones.Where(c => c.Estado == EstadoCotizacion06AV.PorAprobar && pendientes.ContainsKey(c.NumeroCompra))
-                                    .OrderBy(c => c.FechaEmision).ToList();
-            return new Aviso06AV
-            {
-                Tipo = TipoAviso06AV.CotizacionesPorAprobar,
-                Cantidad = lista.Count,
-                Detalle = lista.Take(6).Select(c => $"OC #{pendientes[c.NumeroCompra].NumeroCompra} · {c.Proveedor?.Nombre} · {c.Costo:C0}").ToList()
-            };
+            foreach (var o in ordenes.Where(o => o.EnCurso && o.FechaLimite.Date < DateTime.Today))
+                NotificacionesBLL06AV.PublicarUnica($"oc-atrasada:{o.Id}", TipoNotificacion06AV.OrdenCompraAtrasada,
+                    PatenteEnum06AV.GestionarCompras, NotificacionesBLL06AV.DestinoCompras,
+                    o.NumeroCompra, o.FechaLimite.ToString("dd/MM"));
         }
 
-        private static Aviso06AV Rechazadas(List<OrdenCompra06AV> ordenes, List<PedidoCotizacion06AV> cotizaciones)
+        private static readonly EstadoOrdenProduccion06AV[] OrdenesAbiertas =
         {
-            var lista = ordenes.Where(o => o.Estado == EstadoOrdenCompra06AV.Pendiente)
-                .Where(o =>
-                {
-                    var propias = cotizaciones.Where(c => c.NumeroCompra == o.Id).ToList();
-                    return propias.Count > 0 && propias.All(c => c.Estado == EstadoCotizacion06AV.Desaprobada);
-                })
-                .OrderBy(o => o.NumeroCompra).ToList();
-            return new Aviso06AV
-            {
-                Tipo = TipoAviso06AV.CotizacionesRechazadas,
-                Cantidad = lista.Count,
-                Detalle = lista.Take(6).Select(o => "OC #" + o.NumeroCompra).ToList()
-            };
+            EstadoOrdenProduccion06AV.Pendiente, EstadoOrdenProduccion06AV.Planificada,
+            EstadoOrdenProduccion06AV.EnEnsamblaje, EstadoOrdenProduccion06AV.EnRevision
+        };
+
+        private static void ProduccionAtrasada(List<OrdenProduccion06AV> ordenes)
+        {
+            foreach (var o in ordenes.Where(o => OrdenesAbiertas.Contains(o.Estado) && o.FechaEntregaEstimada.Date < DateTime.Today))
+                NotificacionesBLL06AV.PublicarUnica($"op-atrasada:{o.NumeroOrden}", TipoNotificacion06AV.ProduccionAtrasada,
+                    PatenteEnum06AV.GestionarProduccion, NotificacionesBLL06AV.DestinoProduccion,
+                    o.NumeroOrden, o.Cliente?.NombreCompleto ?? "—", o.FechaEntregaEstimada.ToString("dd/MM"));
         }
 
-        private static Aviso06AV Atrasadas(List<OrdenCompra06AV> ordenes)
+        // RFN1: la venta sigue comprometida con el cliente hasta la entrega (CU07).
+        private static void EntregasVencidas(List<Venta06AV> ventas)
         {
-            var lista = ordenes.Where(o => o.EnCurso && o.FechaLimite.Date < DateTime.Today)
-                               .OrderBy(o => o.FechaLimite).ToList();
-            return new Aviso06AV
-            {
-                Tipo = TipoAviso06AV.OrdenesAtrasadas,
-                Cantidad = lista.Count,
-                Urgente = lista.Count > 0,
-                Detalle = lista.Take(6).Select(o => $"OC #{o.NumeroCompra} · {(DateTime.Today - o.FechaLimite.Date).Days} d").ToList()
-            };
-        }
-
-        private Aviso06AV PagosPendientes(List<OrdenCompra06AV> ordenes)
-        {
-            var bll = new CompraInsumosBLL06AV();
-            List<PagoProveedor06AV> pagos;
-            try { pagos = bll.ObtenerPagos(); }
-            catch { return null; }
-
-            var conRecepcion = ordenes.Where(o => o.Estado == EstadoOrdenCompra06AV.RecibidaParcial ||
-                                                  o.Estado == EstadoOrdenCompra06AV.Finalizada ||
-                                                  o.Estado == EstadoOrdenCompra06AV.CerradaConFaltante);
-            var deudas = new List<KeyValuePair<OrdenCompra06AV, decimal>>();
-            foreach (OrdenCompra06AV o in conRecepcion)
-            {
-                try
-                {
-                    ResumenPagoProveedor06AV r = bll.ResumenPagos(o, pagos);
-                    if (r.Saldo > 0m) deudas.Add(new KeyValuePair<OrdenCompra06AV, decimal>(o, r.Saldo));
-                }
-                catch { }
-            }
-            return new Aviso06AV
-            {
-                Tipo = TipoAviso06AV.PagosPendientes,
-                Cantidad = deudas.Count,
-                Detalle = deudas.Take(6).Select(d => $"OC #{d.Key.NumeroCompra} · {d.Value:C0}").ToList()
-            };
+            foreach (var v in ventas.Where(v => v.Estado != EstadoVenta06AV.Entregada && v.Estado != EstadoVenta06AV.Anulada &&
+                                                v.FechaEntregaEstimada.Date < DateTime.Today))
+                NotificacionesBLL06AV.PublicarUnica($"venta-vencida:{v.NumeroVenta}", TipoNotificacion06AV.EntregaVencida,
+                    PatenteEnum06AV.GestionarVentas, NotificacionesBLL06AV.DestinoVentas,
+                    v.NumeroVenta, v.Cliente?.NombreCompleto ?? "—", v.FechaEntregaEstimada.ToString("dd/MM"));
         }
     }
 }

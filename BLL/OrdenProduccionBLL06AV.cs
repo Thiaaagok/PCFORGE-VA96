@@ -65,6 +65,8 @@ namespace BLL
 
             AuditoriaPcFactory06AV.Alta(
                 $"Orden de producción #{orden.NumeroOrden} (venta #{numeroVenta})", ModuloBitacora.Produccion);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.OrdenProduccionCreada, PatenteEnum06AV.GestionarVentas,
+                NotificacionesBLL06AV.DestinoVentas, numeroVenta, orden.NumeroOrden, venta.Cliente?.NombreCompleto ?? "—");
             return orden;
         }
 
@@ -125,6 +127,8 @@ namespace BLL
                 CambiarEstado(numeroOrden, EstadoOrdenProduccion06AV.EnRevision);
                 AuditoriaPcFactory06AV.Modificacion(
                     $"Orden #{numeroOrden}: control de calidad rechazado → En revisión", ModuloBitacora.Produccion);
+                NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.ControlCalidadRechazado, PatenteEnum06AV.GestionarProduccion,
+                    NotificacionesBLL06AV.DestinoProduccion, numeroOrden, orden.Cliente?.NombreCompleto ?? "—");
                 return null;
             }
 
@@ -159,6 +163,8 @@ namespace BLL
 
             AuditoriaPcFactory06AV.Modificacion(
                 $"Orden #{numeroOrden} finalizada (N° de serie {numeroSerie})", ModuloBitacora.Produccion);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.ComputadoraLista, PatenteEnum06AV.GestionarEntregas,
+                NotificacionesBLL06AV.DestinoEntregas, numeroOrden, orden.Cliente?.NombreCompleto ?? "—", orden.SaldoPendiente.ToString("C0"));
             return numeroSerie;
         }
 

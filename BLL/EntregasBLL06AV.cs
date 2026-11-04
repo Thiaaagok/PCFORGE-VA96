@@ -100,6 +100,8 @@ namespace BLL
 
             AuditoriaPcFactory06AV.Modificacion(
                 $"Orden #{orden.NumeroOrden} entregada (venta #{venta.NumeroVenta})", ModuloBitacora.Ventas);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.EntregaRegistrada, PatenteEnum06AV.GestionarVentas,
+                NotificacionesBLL06AV.DestinoVentas, venta.NumeroVenta, venta.Cliente?.NombreCompleto ?? "—");
             return pago;
         }
 

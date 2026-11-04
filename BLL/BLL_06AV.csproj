@@ -66,6 +66,7 @@
     <Compile Include="ResumenPagoProveedor06AV.cs" />
     <Compile Include="Cuit06AV.cs" />
     <Compile Include="AvisosBLL06AV.cs" />
+    <Compile Include="NotificacionesBLL06AV.cs" />
     <Compile Include="IntegridadBLL06AV.cs" />
     <Compile Include="PatentesBLL06AV.cs" />
     <Compile Include="Excepciones\ExcepcionesBitacora.cs" />

@@ -1,6 +1,7 @@
 ﻿using BLL;
 using PCFORGE_ValdezThiago_96VA.Common;
 using PCFORGE_ValdezThiago_96VA.Controles;
+using PCFORGE_ValdezThiago_96VA.UI;
 using SER;
 using System;
 using System.Collections.Generic;
@@ -14,13 +15,16 @@ namespace PCFORGE_ValdezThiago_96VA
 {
     public partial class FRMMain : Form
     {
-        private const int SidebarAnchoExpandido = 220;
-        private const int SidebarAnchoColapsado = 64;
+        private const int SidebarAnchoExpandido = 260;
+        private const int SidebarAnchoColapsado = 72;
         private bool _sidebarExpandido = true;
-        private Button _moduloActivo;
+        private ItemSidebar06AV _moduloActivo;
+        private string _claveActiva = "menu_inicio";
         private ToolStripMenuItem cambiarIdiomaToolStripMenuItem;
         private ContextMenuStrip cmsIdiomas;
+        private ContextMenuStrip _menuFlotante;
         private Button btnTema;
+        private ItemSidebar06AV _itemInicio;
 
         private const int IntervaloAutoBackupMs = 3 * 60 * 60 * 1000;
         private System.Windows.Forms.Timer _timerAutoBackup;
@@ -41,7 +45,7 @@ namespace PCFORGE_ValdezThiago_96VA
             Tema.TemaChanged += RefrescarTema;
             FormClosed += (s, e) => Tema.TemaChanged -= RefrescarTema;
 
-            MostrarControl(new UsuariosControl());
+            MostrarInicio();
 
             ConfigurarGestionBackups();
             IniciarAvisos();
@@ -114,10 +118,24 @@ namespace PCFORGE_ValdezThiago_96VA
         }
 
 
+        private void MostrarInicio()
+        {
+            if (_itemInicio != null) SeleccionarModulo(_itemInicio);
+            MostrarControl(new Controles.HomeControl06AV());
+        }
+
         private void ConstruirMenuAgrupado()
         {
+            flpModulos.SuspendLayout();
+            var anteriores = flpModulos.Controls.Cast<Control>().ToList();
             flpModulos.Controls.Clear();
+            foreach (var c in anteriores) c.Dispose();
             _navegacion.Clear();
+            _moduloActivo = null;
+
+            _itemInicio = CrearItem(GestorIdioma06AV.Instancia.Obtener("menu_inicio"), "\uE80F", false, "menu_inicio");
+            _itemInicio.Click += (s, e) => MostrarInicio();
+            flpModulos.Controls.Add(_itemInicio);
 
             AgregarGrupo("menu_grp_admin", "\uE713", new List<ItemMenu>
             {
@@ -169,8 +187,104 @@ namespace PCFORGE_ValdezThiago_96VA
 
             AgregarGrupo("menu_grp_ayuda", "\uE897", new List<ItemMenu>
             {
+                Item("menu_guia", "\uE82D", null, false, () => new Controles.GuiaProcesosControl06AV()),
                 ItemAccion("menu_acerca_de", "\uE946", null, false, MostrarAcercaDe),
             });
+
+            var activo = flpModulos.Controls.OfType<ItemSidebar06AV>()
+                .FirstOrDefault(i => string.Equals(i.Tag as string, _claveActiva, StringComparison.OrdinalIgnoreCase));
+            SeleccionarModulo(activo ?? _itemInicio);
+            AjustarSidebar();
+            flpModulos.ResumeLayout();
+        }
+
+        private ItemSidebar06AV CrearItem(string texto, string icono, bool esHijo, string clave)
+        {
+            var item = new ItemSidebar06AV(texto, icono, esHijo)
+            {
+                Tag = clave,
+                Width = AnchoBotonSidebar(),
+                Colapsado = !_sidebarExpandido
+            };
+            toolTipMain.SetToolTip(item, texto);
+            item.MouseWheel += (s, e) => DesplazarMenu(e.Delta);
+            return item;
+        }
+
+        // El scroll nativo de WinForms no se puede tematizar y, al aparecer la barra vertical,
+        // achica el ancho útil y dispara también la horizontal; se reemplaza por uno propio.
+        private const int AnchoBarraMenu = 4;
+        private const int SeparacionBarraMenu = 6;
+        private Panel _vistaMenu;
+        private Panel _barraMenu;
+        private int _desplazamientoMenu;
+        private int? _arrastreBarraY;
+
+        private void ConfigurarScrollMenu()
+        {
+            int indice = pnlSidebar.Controls.GetChildIndex(flpModulos);
+            _vistaMenu = new Panel { Dock = DockStyle.Fill };
+            pnlSidebar.Controls.Remove(flpModulos);
+            pnlSidebar.Controls.Add(_vistaMenu);
+            pnlSidebar.Controls.SetChildIndex(_vistaMenu, indice);
+
+            flpModulos.AutoScroll = false;
+            flpModulos.Dock = DockStyle.None;
+            flpModulos.AutoSize = true;
+            flpModulos.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            flpModulos.Location = Point.Empty;
+            flpModulos.Margin = Padding.Empty;
+            _vistaMenu.Controls.Add(flpModulos);
+
+            _barraMenu = new Panel { Width = AnchoBarraMenu, Visible = false, Cursor = Cursors.Hand };
+            _barraMenu.Paint += (s, e) =>
+            {
+                Pintura06AV.Calidad(e.Graphics);
+                e.Graphics.Clear(_vistaMenu.BackColor);
+                Pintura06AV.Rellenar(e.Graphics, new Rectangle(0, 0, _barraMenu.Width, _barraMenu.Height),
+                                     AnchoBarraMenu / 2, Tema.SidebarLinea);
+            };
+            _barraMenu.MouseDown += (s, e) => _arrastreBarraY = e.Y;
+            _barraMenu.MouseUp += (s, e) => _arrastreBarraY = null;
+            _barraMenu.MouseMove += (s, e) =>
+            {
+                if (_arrastreBarraY == null) return;
+                int recorrido = _vistaMenu.ClientSize.Height - _barraMenu.Height;
+                int maximo = flpModulos.Height - _vistaMenu.ClientSize.Height;
+                if (recorrido <= 0 || maximo <= 0) return;
+                int nuevoTop = _barraMenu.Top + e.Y - _arrastreBarraY.Value;
+                _desplazamientoMenu = nuevoTop * maximo / recorrido;
+                ActualizarScrollMenu();
+            };
+            _vistaMenu.Controls.Add(_barraMenu);
+            _barraMenu.BringToFront();
+
+            _vistaMenu.MouseWheel += (s, e) => DesplazarMenu(e.Delta);
+            flpModulos.MouseWheel += (s, e) => DesplazarMenu(e.Delta);
+            _vistaMenu.ClientSizeChanged += (s, e) => { AjustarAnchosModulos(); ActualizarScrollMenu(); };
+            flpModulos.SizeChanged += (s, e) => ActualizarScrollMenu();
+        }
+
+        private void DesplazarMenu(int delta)
+        {
+            _desplazamientoMenu -= delta * ItemSidebar06AV.AltoRaiz / 120;
+            ActualizarScrollMenu();
+        }
+
+        private void ActualizarScrollMenu()
+        {
+            if (_vistaMenu == null) return;
+            int vista = _vistaMenu.ClientSize.Height;
+            int maximo = Math.Max(0, flpModulos.Height - vista);
+            _desplazamientoMenu = Math.Max(0, Math.Min(_desplazamientoMenu, maximo));
+            flpModulos.Top = -_desplazamientoMenu;
+
+            _barraMenu.Visible = maximo > 0;
+            if (maximo == 0) return;
+            int alto = Math.Max(28, vista * vista / flpModulos.Height);
+            int top = (vista - alto) * _desplazamientoMenu / maximo;
+            _barraMenu.SetBounds(_vistaMenu.ClientSize.Width - AnchoBarraMenu, top, AnchoBarraMenu, alto);
+            _barraMenu.Invalidate();
         }
 
         private static ItemMenu Item(string clave, string icono, PatenteEnum06AV? patente, bool soloAdmin, Func<UserControl> crear)
@@ -187,69 +301,63 @@ namespace PCFORGE_ValdezThiago_96VA
                 (!it.SoloAdmin || EsAdministrador())).ToList();
             if (visibles.Count == 0) return;
 
-            var grupo = new GrupoSidebar(GestorIdioma06AV.Instancia.Obtener(claveHeader), icono);
-            var header = new Button { Tag = grupo };
-            ConfigurarBotonGrupo(header);
-            header.Click += (s, e) =>
+            var grupo = CrearItem(GestorIdioma06AV.Instancia.Obtener(claveHeader), icono, false, claveHeader);
+            grupo.EsGrupo = true;
+            var hijos = new List<ItemSidebar06AV>();
+            grupo.Click += (s, e) =>
             {
-                grupo.Expandido = !grupo.Expandido;
-                foreach (var h in grupo.Hijos) h.Visible = grupo.Expandido;
-                RenderizarGrupo(header);
+                if (!_sidebarExpandido) { MostrarMenuFlotante(grupo, hijos); return; }
+                ExpandirGrupo(grupo, hijos, !grupo.Expandido);
             };
-            flpModulos.Controls.Add(header);
+            flpModulos.Controls.Add(grupo);
 
             foreach (var it in visibles)
             {
-                var btn = new Button { Visible = grupo.Expandido };
-                ConfigurarBotonModulo(btn, GestorIdioma06AV.Instancia.Obtener(it.Clave), it.Icono);
+                var hijo = CrearItem(GestorIdioma06AV.Instancia.Obtener(it.Clave), it.Icono, true, it.Clave);
+                hijo.Padre = grupo;
+                hijo.Visible = false;
                 var itLocal = it;
-                if (itLocal.Crear != null)
-                    _navegacion[itLocal.Clave] = () => { SeleccionarModulo(btn); MostrarControl(itLocal.Crear()); };
-                btn.Click += (s, e) =>
+                Action ejecutar = () =>
                 {
-                    if (itLocal.Crear != null) { SeleccionarModulo(btn); MostrarControl(itLocal.Crear()); }
+                    if (itLocal.Crear != null) { SeleccionarModulo(hijo); MostrarControl(itLocal.Crear()); }
                     else itLocal.Accion?.Invoke();
                 };
-                grupo.Hijos.Add(btn);
-                flpModulos.Controls.Add(btn);
+                if (itLocal.Crear != null) _navegacion[itLocal.Clave] = ejecutar;
+                hijo.Click += (s, e) => ejecutar();
+                hijos.Add(hijo);
+                flpModulos.Controls.Add(hijo);
             }
-
-            RenderizarGrupo(header);
+            hijos[hijos.Count - 1].EsUltimoHijo = true;
+            grupo.Tag = new GrupoSidebar(claveHeader, hijos, () => ExpandirGrupo(grupo, hijos, true));
         }
 
-        private void ConfigurarBotonGrupo(Button btn)
+        private void ExpandirGrupo(ItemSidebar06AV grupo, List<ItemSidebar06AV> hijos, bool expandir)
         {
-            btn.Height = 40;
-            btn.Margin = new Padding(0, 3, 0, 3);
-            btn.FlatStyle = FlatStyle.Flat;
-            btn.FlatAppearance.BorderSize = 0;
-            btn.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
-            btn.Cursor = Cursors.Hand;
-            btn.TabStop = false;
-            btn.UseVisualStyleBackColor = false;
-            btn.BackColor = Tema.FondoElevado;
-            btn.ForeColor = Tema.Primario;
-            btn.FlatAppearance.MouseOverBackColor = Tema.Acero50;
-            btn.FlatAppearance.MouseDownBackColor = Tema.Seleccion;
+            grupo.Expandido = expandir;
+            flpModulos.SuspendLayout();
+            foreach (var h in hijos) h.Visible = expandir && _sidebarExpandido;
+            flpModulos.ResumeLayout();
         }
 
-        private void RenderizarGrupo(Button btn)
+        private void MostrarMenuFlotante(ItemSidebar06AV grupo, List<ItemSidebar06AV> hijos)
         {
-            if (!(btn.Tag is GrupoSidebar g)) return;
-            btn.Width = AnchoBotonSidebar();
-            btn.Padding = _sidebarExpandido ? new Padding(10, 0, 0, 0) : Padding.Empty;
-            string chevron = g.Expandido ? "\u25BE  " : "\u25B8  ";
-            btn.Text = _sidebarExpandido ? chevron + g.Texto.ToUpperInvariant() : string.Empty;
-            btn.TextAlign = _sidebarExpandido ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleCenter;
-            btn.ImageAlign = _sidebarExpandido ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleCenter;
-            btn.TextImageRelation = TextImageRelation.ImageBeforeText;
-            Image ant = btn.Image;
-            btn.Image = CrearIconoModulo(g.Icono, btn.ForeColor);
-            ant?.Dispose();
+            _menuFlotante?.Dispose();
+            _menuFlotante = new ContextMenuStrip();
+            RenderizadorMenu06AV.Aplicar(_menuFlotante);
+            foreach (var h in hijos)
+            {
+                var hijo = h;
+                var item = new ToolStripMenuItem(hijo.Texto);
+                RenderizadorMenu06AV.PrepararItem(item);
+                if (hijo == _moduloActivo) { item.Font = new Font(_menuFlotante.Font, FontStyle.Bold); item.ForeColor = Tema.Acento; }
+                item.Click += (s, e) => hijo.InvokeClick();
+                _menuFlotante.Items.Add(item);
+            }
+            _menuFlotante.Show(grupo, new Point(grupo.Width + 8, 0));
         }
 
         private int AnchoBotonSidebar() =>
-            Math.Max(1, flpModulos.ClientSize.Width);
+            Math.Max(1, _vistaMenu.ClientSize.Width - (_sidebarExpandido ? SeparacionBarraMenu + AnchoBarraMenu : 0));
 
         private void CrearBotonTema()
         {
@@ -264,7 +372,7 @@ namespace PCFORGE_ValdezThiago_96VA
                 TabStop = false
             };
             btnTema.Click += (s, e) => Tema.ToggleTema();
-            ConfigurarBotonTopbar(btnTema, Tema.FondoElevado, Tema.Acero700);
+            ConfigurarBotonTopbar(btnTema, Tema.FondoSidebar, Tema.Texto);
             btnTema.Font = new Font("Segoe UI Symbol", 12f);
             ActualizarTextoBotonTema();
 
@@ -282,19 +390,20 @@ namespace PCFORGE_ValdezThiago_96VA
         private void RefrescarTema()
         {
             BackColor = Tema.FondoApp;
-            pnlTopBar.BackColor = Tema.FondoElevado;
+            pnlTopBar.BackColor = Tema.FondoSidebar;
             pnlShell.BackColor = Tema.FondoApp;
             panelPrincipal.BackColor = Tema.FondoApp;
-            pnlSidebar.BackColor = Tema.FondoElevado;
+            AplicarColoresSidebar();
             lblSistema.ForeColor = Tema.TextoFuerte;
 
-            ConfigurarBotonTopbar(btnToggleSidebar, Tema.FondoElevado, Tema.Acero700);
-            ConfigurarBotonTopbar(opcionesUsuarioBTN, Tema.FondoElevado, Tema.Acero700);
+            ConfigurarBotonTopbar(btnToggleSidebar, Tema.FondoSidebar, Tema.Texto);
+            btnToggleSidebar.Font = new Font("Segoe MDL2 Assets", 13f, FontStyle.Regular, GraphicsUnit.Pixel);
+            ConfigurarBotonTopbar(opcionesUsuarioBTN, Tema.FondoSidebar, Tema.Texto);
             ConfigurarBotonTopbar(btnIdioma, Tema.PrimarioSuave, Tema.Primario);
-            ConfigurarBotonTopbar(btnCerrarSesion, Tema.FondoElevado, Tema.Peligro);
+            ConfigurarBotonTopbar(btnCerrarSesion, Tema.FondoSidebar, Tema.Peligro);
             if (btnTema != null)
             {
-                ConfigurarBotonTopbar(btnTema, Tema.FondoElevado, Tema.Acero700);
+                ConfigurarBotonTopbar(btnTema, Tema.FondoSidebar, Tema.Texto);
                 btnTema.Font = new Font("Segoe UI Symbol", 12f);
                 ActualizarTextoBotonTema();
             }
@@ -302,19 +411,6 @@ namespace PCFORGE_ValdezThiago_96VA
 
             ConfigurarPanelUsuario();
             ConfigurarMenuUsuario();
-
-            foreach (Control c in flpModulos.Controls)
-                if (c is Button b)
-                {
-                    if (b.Tag is GrupoSidebar)
-                    {
-                        b.BackColor = Tema.FondoElevado;
-                        b.ForeColor = Tema.Primario;
-                        b.FlatAppearance.MouseOverBackColor = Tema.Acero50;
-                        RenderizarGrupo(b);
-                    }
-                    else RenderizarBotonModulo(b);
-                }
 
             if (panelPrincipal.Controls.Count > 0 && panelPrincipal.Controls[0] is UserControl uc)
                 Tema.AplicarControl(uc);
@@ -366,11 +462,11 @@ namespace PCFORGE_ValdezThiago_96VA
             var t = GestorIdioma06AV.Instancia;
 
             Text = "PC Forge";
-            lblSistema.Text = "PC FORGE";
             lblMenuPrincipal.Text = t.Obtener("menu_principal");
             lblSidebarFooter.Text = t.Obtener("sidebar_footer");
 
             ConstruirMenuAgrupado();
+            CargarSesionEnEncabezado();
 
             cambiarContraseñaToolStripMenuItem.Text = t.Obtener("cambiar_contrasenia");
             reloginToolStripMenuItem.Text = t.Obtener("relogin");
@@ -404,23 +500,45 @@ namespace PCFORGE_ValdezThiago_96VA
         private void ConfigurarInterfaz()
         {
             DoubleBuffered = true;
+            ConfigurarScrollMenu();
 
-            pnlTopBar.BackColor = Tema.FondoElevado;
+            pnlTopBar.BackColor = Tema.FondoSidebar;
             pnlShell.BackColor = Tema.FondoApp;
             panelPrincipal.BackColor = Tema.FondoApp;
-            pnlSidebar.BackColor = Tema.FondoElevado;
-            panelPrincipal.Padding = new Padding(16);
+            panelPrincipal.Padding = new Padding(20);
 
-            lblSistema.Font = new Font("Segoe UI Semibold", 15.5f, FontStyle.Bold);
+            pnlTopBar.Height = 60;
+            pnlTopBar.Padding = new Padding(20, 0, 16, 0);
+            flpTopActions.Padding = new Padding(0, 13, 0, 0);
+            var familiaMarca = FRMLogin.FamiliaTitulos(out bool marcaPrivada);
+            lblSistema.Font = familiaMarca != null
+                ? new Font(familiaMarca, 30f, FontStyle.Regular, GraphicsUnit.Pixel)
+                : new Font("Segoe UI Semibold", 15f, FontStyle.Bold);
+            lblSistema.UseCompatibleTextRendering = marcaPrivada;
             lblSistema.ForeColor = Tema.TextoFuerte;
-            lblSistema.Width = 220;
+            lblSistema.Width = SidebarAnchoExpandido - pnlTopBar.Padding.Left;
+            lblSistema.Text = "PCFORGE";
+            btnToggleSidebar.Dock = DockStyle.None;
+            btnToggleSidebar.Size = new Size(36, 34);
+            btnToggleSidebar.Location = new Point(lblSistema.Right + 16, 13);
             pnlTopBar.Paint += DibujarLineaInferior;
-            pnlSidebar.Paint += DibujarLineaDerecha;
 
-            ConfigurarBotonTopbar(btnToggleSidebar, Tema.FondoElevado, Tema.Acero700);
-            ConfigurarBotonTopbar(opcionesUsuarioBTN, Tema.FondoElevado, Tema.Acero700);
+            lblSidebarFooter.Visible = false;
+            lblMenuPrincipal.Height = 34;
+            lblMenuPrincipal.TextAlign = ContentAlignment.BottomLeft;
+            lblMenuPrincipal.Padding = new Padding(10, 0, 0, 6);
+            pnlSidebar.Paint += DibujarBordeSidebar;
+            pnlSidebar.Resize += (s, e) => pnlSidebar.Invalidate();
+            lblAvatar.Cursor = Cursors.Hand;
+            lblAvatar.Click += opcionesUsuarioBTN_Click;
+            panel4.Resize += (s, e) => UbicarEncabezadoSidebar();
+            AplicarColoresSidebar();
+
+            ConfigurarBotonTopbar(btnToggleSidebar, Tema.FondoSidebar, Tema.Texto);
+            btnToggleSidebar.Font = new Font("Segoe MDL2 Assets", 13f, FontStyle.Regular, GraphicsUnit.Pixel);
+            ConfigurarBotonTopbar(opcionesUsuarioBTN, Tema.FondoSidebar, Tema.Texto);
             ConfigurarBotonTopbar(btnIdioma, Tema.PrimarioSuave, Tema.Primario);
-            ConfigurarBotonTopbar(btnCerrarSesion, Tema.FondoElevado, Tema.Peligro);
+            ConfigurarBotonTopbar(btnCerrarSesion, Tema.FondoSidebar, Tema.Peligro);
 
             CrearBotonTema();
             CrearBotonAvisos();
@@ -429,7 +547,6 @@ namespace PCFORGE_ValdezThiago_96VA
             ConfigurarMenuUsuario();
             AjustarSidebar();
 
-            flpModulos.ClientSizeChanged += (s, e) => AjustarAnchosModulos();
 
             HabilitarArrastreVentana(pnlTopBar);
             HabilitarArrastreVentana(lblSistema);
@@ -473,108 +590,102 @@ namespace PCFORGE_ValdezThiago_96VA
             flpModulos.SuspendLayout();
             int ancho = AnchoBotonSidebar();
             foreach (Control c in flpModulos.Controls)
-                if (c is Button b) b.Width = ancho;
+                c.Width = ancho;
             flpModulos.ResumeLayout();
             _ajustandoAnchos = false;
         }
 
         private void ConfigurarPanelUsuario()
         {
-            panel4.BackColor = Tema.FondoElevado;
+            panel4.BackColor = Tema.FondoSidebar;
             lblAvatar.BackColor = Tema.Primario;
             lblAvatar.ForeColor = Tema.TextoInvertido;
-            lblAvatar.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
-            lblUsuario.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
-            lblRol.Font = new Font("Segoe UI", 8f, FontStyle.Regular);
-            lblUsuario.ForeColor = Tema.Texto;
-            lblRol.ForeColor = Tema.TextoSuave;
+            lblAvatar.Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold);
+            lblRol.Font = new Font("Segoe UI Semibold", 7.5f, FontStyle.Bold);
+            lblUsuario.Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold);
+            lblRol.ForeColor = Tema.Acento;
+            lblUsuario.ForeColor = Tema.TextoFuerte;
+            lblRol.BackColor = lblUsuario.BackColor = Tema.FondoSidebar;
+            opcionesUsuarioBTN.Text = "";
+            opcionesUsuarioBTN.Font = new Font("Segoe MDL2 Assets", 8f);
+            opcionesUsuarioBTN.FlatAppearance.BorderSize = 0;
+            opcionesUsuarioBTN.BackColor = Tema.FondoSidebar;
+            opcionesUsuarioBTN.ForeColor = Tema.TextoSuave;
+            opcionesUsuarioBTN.FlatAppearance.MouseOverBackColor = Tema.SidebarHover;
             AplicarAvatarCircular();
+        }
+
+        private void AplicarColoresSidebar()
+        {
+            pnlSidebar.BackColor = Tema.FondoSidebar;
+            flpModulos.BackColor = Tema.FondoSidebar;
+            _vistaMenu.BackColor = Tema.FondoSidebar;
+            _barraMenu.Invalidate();
+            lblMenuPrincipal.BackColor = Tema.FondoSidebar;
+            lblMenuPrincipal.ForeColor = Tema.TextoSuave;
+            lblMenuPrincipal.Font = new Font("Segoe UI Semibold", 7.5f, FontStyle.Bold);
+            foreach (Control c in flpModulos.Controls) c.Invalidate();
+            pnlSidebar.Invalidate();
+        }
+
+        private void DibujarBordeSidebar(object sender, PaintEventArgs e)
+        {
+            using (var pen = new Pen(Tema.BordeSidebar))
+                e.Graphics.DrawLine(pen, pnlSidebar.Width - 1, 0, pnlSidebar.Width - 1, pnlSidebar.Height);
+        }
+
+        private void UbicarEncabezadoSidebar()
+        {
+            const int avatar = 40;
+            lblAvatar.Size = new Size(avatar, avatar);
+            AplicarAvatarCircular();
+            lblRol.Visible = lblUsuario.Visible = opcionesUsuarioBTN.Visible = _sidebarExpandido;
+
+            if (!_sidebarExpandido)
+            {
+                lblAvatar.Location = new Point((panel4.Width - avatar) / 2, (panel4.Height - avatar) / 2);
+                return;
+            }
+
+            lblAvatar.Location = new Point(4, (panel4.Height - avatar) / 2);
+            int x = lblAvatar.Right + 10;
+            int ancho = Math.Max(10, panel4.Width - x - 30);
+            lblRol.SetBounds(x, lblAvatar.Top + 1, ancho, 15);
+            lblUsuario.SetBounds(x, lblRol.Bottom, ancho, 20);
+            opcionesUsuarioBTN.SetBounds(panel4.Width - 26, (panel4.Height - 26) / 2, 24, 26);
         }
 
         private void ConfigurarMenuUsuario()
         {
-            ctxMenuUsuario.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
-            ctxMenuUsuario.BackColor = Tema.FondoElevado;
-            ctxMenuUsuario.ForeColor = Tema.Texto;
-            ctxMenuUsuario.RenderMode = ToolStripRenderMode.System;
-            ctxMenuUsuario.Padding = new Padding(4);
+            RenderizadorMenu06AV.Aplicar(ctxMenuUsuario);
         }
+
+        private readonly HashSet<Button> _botonesRedondeados = new HashSet<Button>();
 
         private void ConfigurarBotonTopbar(Button btn, Color fondo, Color texto)
         {
             btn.BackColor = fondo;
             btn.ForeColor = texto;
             btn.FlatStyle = FlatStyle.Flat;
-            btn.FlatAppearance.BorderColor = Tema.Borde;
-            btn.FlatAppearance.MouseOverBackColor = Tema.Acero100;
-            btn.FlatAppearance.MouseDownBackColor = Tema.Borde;
+            btn.FlatAppearance.BorderSize = 0;
+            btn.FlatAppearance.BorderColor = fondo;
+            btn.FlatAppearance.MouseOverBackColor = fondo == Tema.FondoSidebar ? Tema.SidebarHover : Pintura06AV.Mezclar(fondo, Tema.TextoFuerte, 0.08f);
+            btn.FlatAppearance.MouseDownBackColor = Tema.SidebarActivo;
             btn.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
             btn.TextAlign = ContentAlignment.MiddleCenter;
-        }
-
-        private void ConfigurarBotonModulo(Button btn, string texto, string icono)
-        {
-            btn.Tag = new ModuloSidebar(texto, icono);
-            btn.Margin = new Padding(0, 3, 0, 3);
-            btn.Width = AnchoBotonSidebar();
-            btn.Height = 42;
-            btn.FlatStyle = FlatStyle.Flat;
-            btn.FlatAppearance.BorderSize = 0;
-            btn.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
-            btn.Cursor = Cursors.Hand;
-            btn.ImageAlign = _sidebarExpandido ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleCenter;
-            btn.TextImageRelation = TextImageRelation.ImageBeforeText;
-            btn.TextAlign = _sidebarExpandido ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleCenter;
-            btn.Padding = _sidebarExpandido ? new Padding(16, 0, 0, 0) : Padding.Empty;
             btn.UseVisualStyleBackColor = false;
-            btn.TabStop = false;
 
-            RenderizarBotonModulo(btn);
-            toolTipMain.SetToolTip(btn, texto);
+            if (_botonesRedondeados.Add(btn))
+                btn.SizeChanged += (s, e) => RedondearBoton(btn);
+            RedondearBoton(btn);
         }
 
-        private void RenderizarBotonModulo(Button btn)
+        private static void RedondearBoton(Button btn)
         {
-            if (!(btn.Tag is ModuloSidebar modulo))
-            {
-                return;
-            }
-
-            bool activo = btn == _moduloActivo;
-            btn.Text = _sidebarExpandido ? modulo.Texto : string.Empty;
-            btn.TextAlign = _sidebarExpandido ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleCenter;
-            btn.ImageAlign = _sidebarExpandido ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleCenter;
-            btn.Padding = _sidebarExpandido ? new Padding(16, 0, 0, 0) : Padding.Empty;
-            btn.BackColor = activo ? Tema.PrimarioSuave : Tema.FondoElevado;
-            btn.ForeColor = activo ? Tema.Primario : Tema.Texto;
-            btn.FlatAppearance.MouseOverBackColor = activo
-                ? Tema.PrimarioSuave
-                : Tema.Seleccion;
-            btn.FlatAppearance.MouseDownBackColor = Tema.Seleccion;
-            btn.Width = AnchoBotonSidebar();
-
-            Image imagenAnterior = btn.Image;
-            btn.Image = CrearIconoModulo(modulo.Icono, btn.ForeColor);
-            imagenAnterior?.Dispose();
-        }
-
-        private Image CrearIconoModulo(string icono, Color color)
-        {
-            var bitmap = new Bitmap(20, 20);
-            using (Graphics g = Graphics.FromImage(bitmap))
-            using (var fuente = new Font("Segoe MDL2 Assets", 11.5f, FontStyle.Regular))
-            {
-                g.Clear(Color.Transparent);
-                TextRenderer.DrawText(
-                    g,
-                    icono,
-                    fuente,
-                    new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                    color,
-                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-            }
-
-            return bitmap;
+            var anterior = btn.Region;
+            using (var path = Pintura06AV.Redondeado(new Rectangle(0, 0, btn.Width, btn.Height), 8))
+                btn.Region = new Region(path);
+            anterior?.Dispose();
         }
 
         private void AplicarAvatarCircular()
@@ -589,31 +700,23 @@ namespace PCFORGE_ValdezThiago_96VA
 
         private void DibujarLineaInferior(object sender, PaintEventArgs e)
         {
-            using (var pen = new Pen(Tema.Borde))
+            using (var pen = new Pen(Tema.BordeSidebar))
             {
                 e.Graphics.DrawLine(pen, 0, pnlTopBar.Height - 1, pnlTopBar.Width, pnlTopBar.Height - 1);
             }
         }
 
-        private void DibujarLineaDerecha(object sender, PaintEventArgs e)
+        private void SeleccionarModulo(Control control)
         {
-            using (var pen = new Pen(Tema.Borde))
-            {
-                e.Graphics.DrawLine(pen, pnlSidebar.Width - 1, 0, pnlSidebar.Width - 1, pnlSidebar.Height);
-            }
-        }
+            if (!(control is ItemSidebar06AV item)) return;
 
-        private void SeleccionarModulo(Button boton)
-        {
-            _moduloActivo = boton;
+            _moduloActivo = item;
+            _claveActiva = item.Tag as string;
+            foreach (var i in flpModulos.Controls.OfType<ItemSidebar06AV>())
+                i.Activo = i == item || i == item.Padre;
 
-            foreach (Control c in flpModulos.Controls)
-            {
-                if (c is Button btn)
-                {
-                    RenderizarBotonModulo(btn);
-                }
-            }
+            if (item.Padre?.Tag is GrupoSidebar grupo && !item.Padre.Expandido)
+                grupo.Expandir();
         }
 
         public void MostrarControl(UserControl control)
@@ -630,6 +733,28 @@ namespace PCFORGE_ValdezThiago_96VA
             if (control is IIdiomaAplicable06AV aplicable)
                 aplicable.AplicarIdioma();
         }
+
+        /// <summary>True si el modulo indicado por su clave esta disponible para el usuario actual (tiene permiso).</summary>
+        public bool PuedeNavegarAModulo(string clave)
+            => !string.IsNullOrEmpty(clave) && _navegacion.ContainsKey(clave);
+
+        /// <summary>Abre el modulo indicado por su clave de menu, como si el usuario hiciera clic en el item del sidebar.</summary>
+        public void NavegarAModulo(string clave)
+        {
+            if (!string.IsNullOrEmpty(clave) && _navegacion.TryGetValue(clave, out Action ir)) ir();
+        }
+
+        /// <summary>Devuelve el item del menu lateral con esa clave (para resaltarlo en la guia interactiva).</summary>
+        public Control ItemSidebarPorClave(string clave)
+        {
+            if (string.IsNullOrEmpty(clave)) return null;
+            foreach (var it in flpModulos.Controls.OfType<ItemSidebar06AV>())
+                if (string.Equals(it.Tag as string, clave, StringComparison.OrdinalIgnoreCase)) return it;
+            return null;
+        }
+
+        /// <summary>El area donde se cargan las pantallas (para resaltarla en la guia interactiva).</summary>
+        public Control AreaContenido() { return panelPrincipal; }
 
         private void bitacoraBTN_Click(object sender, EventArgs e)
         {
@@ -669,32 +794,33 @@ namespace PCFORGE_ValdezThiago_96VA
 
         private void AjustarSidebar()
         {
+            pnlSidebar.SuspendLayout();
+            flpModulos.SuspendLayout();
             pnlSidebar.Width = _sidebarExpandido ? SidebarAnchoExpandido : SidebarAnchoColapsado;
-            pnlSidebar.Padding = _sidebarExpandido
-                ? new Padding(14, 20, 10, 14)
-                : new Padding(10, 20, 10, 14);
+            pnlSidebar.Padding = new Padding(14, 12, 15, 16);
             lblMenuPrincipal.Visible = _sidebarExpandido;
-            lblSidebarFooter.Visible = _sidebarExpandido;
-            btnToggleSidebar.Text = _sidebarExpandido ? "≡" : ">";
+            btnToggleSidebar.Text = _sidebarExpandido ? "" : "";
 
-            foreach (Control c in flpModulos.Controls)
+            foreach (var item in flpModulos.Controls.OfType<ItemSidebar06AV>())
             {
-                if (c is Button btn)
-                {
-                    if (btn.Tag is GrupoSidebar) RenderizarGrupo(btn);
-                    else RenderizarBotonModulo(btn);
-                }
+                item.Colapsado = !_sidebarExpandido;
+                if (item.EsHijo) item.Visible = _sidebarExpandido && item.Padre.Expandido;
             }
+            flpModulos.ResumeLayout();
+            pnlSidebar.ResumeLayout();
+            AjustarAnchosModulos();
+            UbicarEncabezadoSidebar();
+            pnlSidebar.Invalidate();
         }
 
         private void opcionesUsuarioBTN_Click(object sender, EventArgs e)
         {
-            ctxMenuUsuario.Show(panel4, new Point(panel4.Width - ctxMenuUsuario.Width, panel4.Height + 2));
+            ctxMenuUsuario.Show(panel4, new Point(0, panel4.Height + 4));
         }
 
         private void btnIdioma_Click(object sender, EventArgs e)
         {
-            cmsIdiomas.Show(btnIdioma, new Point(0, btnIdioma.Height));
+            cmsIdiomas.Show(btnIdioma, new Point(btnIdioma.Width, btnIdioma.Height + 6), ToolStripDropDownDirection.BelowLeft);
         }
 
         private void cambiarIdiomaToolStripMenuItem_Click(object sender, EventArgs e)
@@ -722,6 +848,17 @@ namespace PCFORGE_ValdezThiago_96VA
                 item.Click += (s, e) => CambiarIdiomaA(((ToolStripMenuItem)s).Tag.ToString());
                 cmsIdiomas.Items.Add(item);
             }
+
+            RenderizadorMenu06AV.Aplicar(cmsIdiomas);
+            cmsIdiomas.Opening += (s, e) =>
+            {
+                foreach (ToolStripItem item in cmsIdiomas.Items)
+                {
+                    bool actual = (string)item.Tag == GestorIdioma06AV.Instancia.IdiomaActual;
+                    item.Font = new Font(cmsIdiomas.Font, actual ? FontStyle.Bold : FontStyle.Regular);
+                    item.ForeColor = actual ? Tema.Acento : Tema.Texto;
+                }
+            };
         }
 
         private void CambiarIdiomaA(string nuevo)
@@ -854,8 +991,12 @@ namespace PCFORGE_ValdezThiago_96VA
             lblUsuario.Text = sesion.UsuarioActual != null
                 ? sesion.NombreCompleto()
                 : GestorIdioma06AV.Instancia.Obtener("usuario");
-            lblRol.Text = sesion.Rol?.Descripcion ?? string.Empty;
+            lblRol.Text = "PCFORGE";
             lblAvatar.Text = ObtenerIniciales(sesion.UsuarioActual);
+
+            string detalle = lblUsuario.Text + (sesion.Rol != null ? "\n" + sesion.Rol.Descripcion : string.Empty);
+            foreach (Control c in new Control[] { panel4, lblAvatar, lblUsuario, lblRol })
+                toolTipMain.SetToolTip(c, detalle);
         }
 
         private bool EsAdministrador()
@@ -877,18 +1018,6 @@ namespace PCFORGE_ValdezThiago_96VA
             return (nombre + apellido).ToUpperInvariant();
         }
 
-        private sealed class ModuloSidebar
-        {
-            public ModuloSidebar(string texto, string icono)
-            {
-                Texto = texto;
-                Icono = icono;
-            }
-
-            public string Texto { get; }
-            public string Icono { get; }
-        }
-
         private sealed class ItemMenu
         {
             public string Clave;
@@ -901,11 +1030,16 @@ namespace PCFORGE_ValdezThiago_96VA
 
         private sealed class GrupoSidebar
         {
-            public GrupoSidebar(string texto, string icono) { Texto = texto; Icono = icono; Expandido = false; }
-            public string Texto;
-            public string Icono;
-            public bool Expandido;
-            public readonly List<Button> Hijos = new List<Button>();
+            public GrupoSidebar(string clave, List<ItemSidebar06AV> hijos, Action expandir)
+            {
+                Clave = clave;
+                Hijos = hijos;
+                Expandir = expandir;
+            }
+
+            public string Clave { get; }
+            public List<ItemSidebar06AV> Hijos { get; }
+            public Action Expandir { get; }
         }
 
     }

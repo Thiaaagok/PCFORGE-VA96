@@ -252,6 +252,8 @@ namespace BLL
 
             AuditoriaPcFactory06AV.Modificacion(
                 $"Seña {pago?.NumeroRecibo} registrada en venta #{numeroVenta}", ModuloBitacora.Ventas);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.VentaRegistrada, PatenteEnum06AV.GestionarProduccion,
+                NotificacionesBLL06AV.DestinoProduccion, numeroVenta, venta.Cliente?.NombreCompleto ?? "—");
             return pago;
         }
 
@@ -286,6 +288,8 @@ namespace BLL
             catch (Exception ex) { throw new AccesoDatosException06AV("No se pudo anular la venta.", ex); }
 
             AuditoriaPcFactory06AV.Baja($"Venta #{numeroVenta} anulada", ModuloBitacora.Ventas);
+            NotificacionesBLL06AV.Publicar(TipoNotificacion06AV.VentaAnulada, PatenteEnum06AV.GestionarProduccion,
+                NotificacionesBLL06AV.DestinoProduccion, numeroVenta, venta.Cliente?.NombreCompleto ?? "—");
         }
 
         internal static List<KeyValuePair<string, int>> Requerimientos(Computadora06AV pc)

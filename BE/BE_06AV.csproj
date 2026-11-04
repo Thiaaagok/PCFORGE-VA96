@@ -61,7 +61,7 @@
     <Compile Include="OrdenCompra06AV.cs" />
     <Compile Include="FacturaCompra06AV.cs" />
     <Compile Include="PagoProveedor06AV.cs" />
-    <Compile Include="Aviso06AV.cs" />
+    <Compile Include="Notificacion06AV.cs" />
     <Compile Include="FilaReporteProveedores06AV.cs" />
     <Compile Include="ModeloEstandar06AV.cs" />
     <Compile Include="PedidoCotizacion06AV.cs" />

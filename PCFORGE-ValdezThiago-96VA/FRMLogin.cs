@@ -9,6 +9,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -29,7 +32,85 @@ namespace PCFORGE_ValdezThiago_96VA
             FormClosed += (s, e) => GestorIdioma06AV.Instancia.IdiomaChanged -= AplicarIdioma;
 
             HabilitarArrastreVentana(this);
-            HabilitarArrastreVentana(panel1);
+            HabilitarArrastreVentana(lblMarca);
+            HabilitarArrastreVentana(lblEslogan);
+        }
+
+        private static readonly Color ColorPanelMarca   = Color.FromArgb(143, 37, 12);
+        private static readonly Color ColorPanelAcceso  = Color.FromArgb(255, 164, 61);
+        private static readonly Color ColorTriangulo    = Color.FromArgb(187, 77, 0);
+        private static readonly Color ColorCampo        = Color.FromArgb(217, 217, 217);
+        private static readonly Color ColorBotonAcceso  = Color.FromArgb(202, 83, 16);
+        private static readonly Color ColorBotonCerrar  = Color.FromArgb(247, 178, 99);
+        private static readonly Color ColorTextoTarjeta = Color.Black;
+
+        private static readonly Point[] TrianguloSuperior = { new Point(70, -181), new Point(205, 41), new Point(0, 202) };
+        private static readonly Point[] TrianguloInferior = { new Point(1154, 377), new Point(909, 465), new Point(967, 721) };
+
+        private const string FamiliaDisenio = "Jaini Purva";
+        private static PrivateFontCollection _fuentesPrivadas;
+
+        internal static FontFamily FamiliaTitulos(out bool privada)
+        {
+            privada = false;
+            using (var instaladas = new InstalledFontCollection())
+            {
+                var instalada = instaladas.Families.FirstOrDefault(f => f.Name == FamiliaDisenio);
+                if (instalada != null) return instalada;
+            }
+
+            try
+            {
+                if (_fuentesPrivadas == null)
+                {
+                    string ruta = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Fuentes", "JainiPurva-Regular.ttf");
+                    if (!File.Exists(ruta)) return null;
+                    _fuentesPrivadas = new PrivateFontCollection();
+                    _fuentesPrivadas.AddFontFile(ruta);
+                    // PrivateFontCollection solo alcanza a GDI+; los TextBox dibujan con GDI y necesitan la fuente registrada en el proceso.
+                    AddFontResourceEx(ruta, FR_PRIVATE, IntPtr.Zero);
+                }
+                privada = true;
+                return _fuentesPrivadas.Families.FirstOrDefault();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            var g = e.Graphics;
+            int mitad = ClientSize.Width / 2;
+
+            using (var b = new SolidBrush(ColorPanelMarca)) g.FillRectangle(b, 0, 0, mitad, ClientSize.Height);
+            using (var b = new SolidBrush(ColorPanelAcceso)) g.FillRectangle(b, mitad, 0, ClientSize.Width - mitad, ClientSize.Height);
+
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var b = new SolidBrush(ColorTriangulo))
+            {
+                g.FillPolygon(b, TrianguloSuperior);
+                g.FillPolygon(b, TrianguloInferior);
+            }
+        }
+
+        private const uint FR_PRIVATE = 0x10;
+
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
+        private static extern int AddFontResourceEx(string lpszFilename, uint fl, IntPtr pdv);
+
+        private const string IconoOjo = "";
+        private const string IconoOjoTachado = "";
+
+        private void AlternarVerContrasenia(object sender, EventArgs e)
+        {
+            bool oculta = ContraseniaTextBox.PasswordChar != '\0';
+            ContraseniaTextBox.PasswordChar = oculta ? '\0' : '*';
+            btnVerContrasenia.Text = oculta ? IconoOjoTachado : IconoOjo;
+            ContraseniaTextBox.Focus();
+            ContraseniaTextBox.SelectionStart = ContraseniaTextBox.TextLength;
         }
 
         private const int WM_NCLBUTTONDOWN = 0xA1;
@@ -54,35 +135,84 @@ namespace PCFORGE_ValdezThiago_96VA
 
         private void AplicarTema()
         {
-            Tema.AplicarFormulario(this);
+            DoubleBuffered = true;
+            BackColor = ColorPanelMarca;
 
-            BackColor = Tema.FondoApp;
-            panel1.BackColor = Tema.Grafito900;
+            var familia = FamiliaTitulos(out bool privada);
+            Font Titulo(float px) => familia != null
+                ? new Font(familia, px, FontStyle.Regular, GraphicsUnit.Pixel)
+                : new Font("Segoe UI Semibold", px * 0.8f, FontStyle.Bold, GraphicsUnit.Pixel);
 
-            Usuario.BackColor = Tema.FondoApp;
-            Usuario.ForeColor = Tema.Texto;
-            Usuario.Font = new Font("Segoe UI Semibold", 11.5f, FontStyle.Bold);
-            materialLabel2.BackColor = Tema.FondoApp;
-            materialLabel2.ForeColor = Tema.Texto;
-            materialLabel2.Font = new Font("Segoe UI Semibold", 11.5f, FontStyle.Bold);
+            lblMarca.Font = Titulo(96f);
+            lblMarca.ForeColor = Color.White;
+            lblEslogan.Font = Titulo(36f);
+            lblEslogan.ForeColor = Color.White;
 
-            LoginTextBox.BackColor = Tema.FondoElevado;
-            LoginTextBox.ForeColor = Tema.Texto;
-            LoginTextBox.Font = new Font("Segoe UI", 13f, FontStyle.Regular);
-            LoginTextBox.BorderStyle = BorderStyle.FixedSingle;
-            ContraseniaTextBox.BackColor = Tema.FondoElevado;
-            ContraseniaTextBox.ForeColor = Tema.Texto;
-            ContraseniaTextBox.Font = new Font("Segoe UI", 13f, FontStyle.Regular);
-            ContraseniaTextBox.BorderStyle = BorderStyle.FixedSingle;
+            pnlTarjeta.BackColor = Color.White;
+            lblBienvenidos.Font = Titulo(36f);
+            lblBienvenidos.ForeColor = ColorTextoTarjeta;
 
-            Tema.AplicarBotonPrimario(IniciarSesionBTN);
-            Tema.AplicarBotonAcento(CerrarBTN);
+            foreach (var lbl in new[] { Usuario, materialLabel2 })
+            {
+                lbl.Font = Titulo(24f);
+                lbl.ForeColor = ColorTextoTarjeta;
+                lbl.BackColor = Color.White;
+            }
+
+            foreach (var campo in new[] { pnlCampoUsuario, pnlCampoContrasenia })
+                campo.BackColor = ColorCampo;
+            foreach (var txt in new[] { LoginTextBox, ContraseniaTextBox })
+            {
+                txt.BackColor = ColorCampo;
+                txt.ForeColor = ColorTextoTarjeta;
+                txt.Font = familia != null
+                    ? new Font(familia, 20f, FontStyle.Regular, GraphicsUnit.Pixel)
+                    : new Font("Segoe UI", 15f, FontStyle.Regular, GraphicsUnit.Pixel);
+            }
+
+            btnVerContrasenia.Text = IconoOjo;
+            btnVerContrasenia.Font = new Font("Segoe MDL2 Assets", 18f, FontStyle.Regular, GraphicsUnit.Pixel);
+            btnVerContrasenia.ForeColor = Color.FromArgb(80, 80, 80);
+            btnVerContrasenia.BackColor = ColorCampo;
+            btnVerContrasenia.FlatStyle = FlatStyle.Flat;
+            btnVerContrasenia.FlatAppearance.BorderSize = 0;
+            btnVerContrasenia.FlatAppearance.MouseOverBackColor = ControlPaint.Dark(ColorCampo, 0.05f);
+            btnVerContrasenia.FlatAppearance.MouseDownBackColor = ControlPaint.Dark(ColorCampo, 0.1f);
+            btnVerContrasenia.UseVisualStyleBackColor = false;
+            btnVerContrasenia.Cursor = Cursors.Hand;
+
+            EstilizarBoton(IniciarSesionBTN, ColorBotonAcceso, Titulo(24f));
+            EstilizarBoton(CerrarBTN, ColorBotonCerrar, Titulo(24f));
+
+            if (privada)
+            {
+                foreach (var lbl in new[] { lblMarca, lblEslogan, lblBienvenidos, Usuario, materialLabel2 })
+                    lbl.UseCompatibleTextRendering = true;
+                IniciarSesionBTN.UseCompatibleTextRendering = true;
+                CerrarBTN.UseCompatibleTextRendering = true;
+            }
+        }
+
+        private static void EstilizarBoton(Button boton, Color fondo, Font fuente)
+        {
+            boton.BackColor = fondo;
+            boton.ForeColor = Color.Black;
+            boton.Font = fuente;
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.FlatAppearance.BorderSize = 0;
+            boton.FlatAppearance.BorderColor = fondo;
+            boton.FlatAppearance.MouseOverBackColor = ControlPaint.Light(fondo, 0.15f);
+            boton.FlatAppearance.MouseDownBackColor = ControlPaint.Dark(fondo, 0.05f);
+            boton.UseVisualStyleBackColor = false;
+            boton.Cursor = Cursors.Hand;
         }
 
         public void AplicarIdioma()
         {
             var t = GestorIdioma06AV.Instancia;
             this.Text                  = t.Obtener("login");
+            lblBienvenidos.Text        = t.Obtener("login_bienvenidos");
+            lblEslogan.Text            = t.Obtener("login_eslogan");
             Usuario.Text               = t.Obtener("usuario_label");
             materialLabel2.Text        = t.Obtener("contrasenia_label");
             IniciarSesionBTN.Text      = t.Obtener("iniciar_sesion");
