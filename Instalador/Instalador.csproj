@@ -53,6 +53,9 @@
     <Compile Include="FrmProgreso06AV.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="FrmModo06AV.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -176,6 +179,22 @@
     </Content>
     <Content Include="..\SQL\38_cotizacion_precio_por_item.sql">
       <Link>Scripts\38_cotizacion_precio_por_item.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\SQL\39_compatibilidad_componentes.sql">
+      <Link>Scripts\39_compatibilidad_componentes.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\SQL\40_compras_pn2.sql">
+      <Link>Scripts\40_compras_pn2.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\SQL\41_notificaciones.sql">
+      <Link>Scripts\41_notificaciones.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\SQL\42_reporte_combos_stock_parado.sql">
+      <Link>Scripts\42_reporte_combos_stock_parado.sql</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

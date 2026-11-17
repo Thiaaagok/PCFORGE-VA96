@@ -48,6 +48,45 @@ namespace MPP
             FechaEntrega = Nulo(r, "FechaEntrega") ? (DateTime?)null : Convert.ToDateTime(r["FechaEntrega"])
         };
 
+        public List<FilaStockParado06AV> ObtenerStockParado(int diasVentana)
+        {
+            DataTable t = _dal.ObtenerStockParado(diasVentana);
+            var lista = new List<FilaStockParado06AV>();
+            foreach (DataRow r in t.Rows)
+            {
+                lista.Add(new FilaStockParado06AV
+                {
+                    Codigo = Texto(r, "Codigo"),
+                    Descripcion = Texto(r, "Descripcion"),
+                    Tipo = (TipoComponente06AV)Convert.ToInt32(r["Tipo"]),
+                    Marca = Texto(r, "Marca"),
+                    Modelo = Texto(r, "Modelo"),
+                    PrecioUnitario = Decimal(r, "PrecioUnitario"),
+                    Stock = Convert.ToInt32(r["Stock"]),
+                    StockReservado = Convert.ToInt32(r["StockReservado"]),
+                    FechaAlta = Fecha(r, "FechaAlta"),
+                    UltimoIngreso = Fecha(r, "UltimoIngreso"),
+                    UltimaVenta = Fecha(r, "UltimaVenta"),
+                    VendidasVentana = Convert.ToInt32(r["VendidasVentana"]),
+                    VendidasTotal = Convert.ToInt32(r["VendidasTotal"]),
+                    CostoUltimaCompra = Nulo(r, "CostoUltimaCompra") ? (decimal?)null : Convert.ToDecimal(r["CostoUltimaCompra"])
+                });
+            }
+            return lista;
+        }
+
+        // Clave "codigoA|codigoB" (A < B) → cantidad de computadoras vendidas con ambos.
+        public Dictionary<string, int> ObtenerComponentesVendidosJuntos()
+        {
+            DataTable t = _dal.ObtenerComponentesVendidosJuntos();
+            var pares = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (DataRow r in t.Rows)
+                pares[Texto(r, "CodigoA") + "|" + Texto(r, "CodigoB")] = Convert.ToInt32(r["Veces"]);
+            return pares;
+        }
+
+        private static DateTime? Fecha(DataRow r, string col) => Nulo(r, col) ? (DateTime?)null : Convert.ToDateTime(r[col]);
+
         private static bool Nulo(DataRow r, string col) =>
             !r.Table.Columns.Contains(col) || r[col] == DBNull.Value;
 

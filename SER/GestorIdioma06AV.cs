@@ -219,6 +219,35 @@ namespace SER
             return clave;
         }
 
+        public bool Existe(string clave)
+        {
+            return !string.IsNullOrEmpty(clave)
+                && _traducciones.TryGetValue(_idiomaActual, out var dicc)
+                && dicc.ContainsKey(clave);
+        }
+
+        // Búsqueda inversa (texto visible -> claves) para la ayuda contextual. Compara sin
+        // los símbolos decorativos que algunas pantallas agregan al texto ("＋ ", " →", "…").
+        public List<string> ClavesConTexto(string texto)
+        {
+            var claves = new List<string>();
+            string buscado = NormalizarTexto(texto);
+            if (buscado.Length == 0 || !_traducciones.TryGetValue(_idiomaActual, out var dicc)) return claves;
+            foreach (var par in dicc)
+                if (string.Equals(NormalizarTexto(par.Value), buscado, StringComparison.OrdinalIgnoreCase))
+                    claves.Add(par.Key);
+            return claves;
+        }
+
+        public static string NormalizarTexto(string texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+            int i = 0, f = texto.Length - 1;
+            while (i <= f && !char.IsLetterOrDigit(texto[i]) && texto[i] != '¿') i++;
+            while (f >= i && !char.IsLetterOrDigit(texto[f]) && texto[f] != '?') f--;
+            return i > f ? string.Empty : texto.Substring(i, f - i + 1).Trim();
+        }
+
         public string Obtener(string clave, params object[] args)
         {
             string plantilla = Obtener(clave);

@@ -183,6 +183,7 @@ namespace PCFORGE_ValdezThiago_96VA
             {
                 Item("menu_rep_ventas", "\uE9D2", PatenteEnum06AV.VerReporteVentas, false, () => new Controles.ReporteVentasControl()),
                 Item("menu_rep_proveedores", "\uE8F1", PatenteEnum06AV.VerReporteProveedores, false, () => new Controles.ReporteProveedoresControl06AV()),
+                Item("menu_rep_combos", "\uE8EC", PatenteEnum06AV.VerReporteVentas, false, () => new Controles.ReporteCombosControl06AV()),
             });
 
             AgregarGrupo("menu_grp_ayuda", "\uE897", new List<ItemMenu>
@@ -408,6 +409,7 @@ namespace PCFORGE_ValdezThiago_96VA
                 ActualizarTextoBotonTema();
             }
             TematizarBotonAvisos();
+            TematizarBotonAyuda();
 
             ConfigurarPanelUsuario();
             ConfigurarMenuUsuario();
@@ -494,6 +496,7 @@ namespace PCFORGE_ValdezThiago_96VA
             toolTipMain.SetToolTip(btnIdioma, t.Obtener("cambiar_idioma"));
             toolTipMain.SetToolTip(btnCerrarSesion, t.Obtener("cerrar_sesion"));
             ActualizarTooltipAvisos();
+            ActualizarTooltipAyuda();
             toolTipMain.SetToolTip(opcionesUsuarioBTN, t.Obtener("usuario"));
         }
 
@@ -542,6 +545,7 @@ namespace PCFORGE_ValdezThiago_96VA
 
             CrearBotonTema();
             CrearBotonAvisos();
+            CrearBotonAyuda();
 
             ConfigurarPanelUsuario();
             ConfigurarMenuUsuario();
@@ -732,6 +736,8 @@ namespace PCFORGE_ValdezThiago_96VA
 
             if (control is IIdiomaAplicable06AV aplicable)
                 aplicable.AplicarIdioma();
+
+            AyudaPantallaCambiada();
         }
 
         /// <summary>True si el modulo indicado por su clave esta disponible para el usuario actual (tiene permiso).</summary>

@@ -61,6 +61,7 @@
     <Compile Include="Common\PdfLienzo06AV.cs" />
     <Compile Include="Common\ReporteVentasPdf06AV.cs" />
     <Compile Include="Common\ReporteProveedoresPdf06AV.cs" />
+    <Compile Include="Common\ReporteCombosPdf06AV.cs" />
     <Compile Include="Common\ConfirmacionForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -156,9 +157,17 @@
     <Compile Include="Controles\HomeControl06AV.cs" />
     <Compile Include="Controles\GuiaProcesosControl06AV.cs" />
     <Compile Include="UI\CoachMarks06AV.cs" />
+    <Compile Include="UI\DatosGuia06AV.cs" />
+    <Compile Include="UI\AyudaContextual06AV.cs" />
+    <Compile Include="UI\GloboAyuda06AV.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\ModoAyudaMouse06AV.cs" />
+    <Compile Include="UI\PanelAyuda06AV.cs" />
     <Compile Include="Controles\FacturasControl.cs" />
     <Compile Include="Controles\ReporteVentasControl.cs" />
     <Compile Include="Controles\ReporteProveedoresControl06AV.cs" />
+    <Compile Include="Controles\ReporteCombosControl06AV.cs" />
     <Compile Include="Controles\SerializacionControl06AV.cs" />
     <Compile Include="Controles\ModelosEstandarControl.cs" />
     <Compile Include="Controles\AbmBaseControl06AV.Designer.cs">
@@ -207,6 +216,10 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="FRMMain.Avisos.cs">
+      <DependentUpon>FRMMain.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FRMMain.Ayuda.cs">
       <DependentUpon>FRMMain.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>

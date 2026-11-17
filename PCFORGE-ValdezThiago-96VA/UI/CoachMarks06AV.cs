@@ -281,79 +281,40 @@ namespace PCFORGE_ValdezThiago_96VA.UI
 
         // -- definicion de los recorridos -----------------------------------------------------
 
-        public static List<PasoCoach06AV> TourPN1()
+        // Textos en Resources\Idiomas: tour_pnN_MM_tit / tour_pnN_MM_txt (numeración G04).
+        private static PasoCoach06AV Paso(string clave, string modulo, string objetivo)
         {
-            var l = new List<PasoCoach06AV>();
-            l.Add(new PasoCoach06AV("Recorrido guiado: Venta de computadoras",
-                "Te muestro, sobre el sistema real y paso a paso, como hacer una venta de punta a punta (CU01 a CU07). Usa Siguiente y Anterior; podes cerrar cuando quieras.",
-                null, "centro"));
-            l.Add(new PasoCoach06AV("CU01 - Registrar cliente",
-                "Primero el cliente. Abri Clientes: es el menu resaltado.",
-                "pcf_menu_clientes", "sidebar"));
-            l.Add(new PasoCoach06AV("CU01 - Registrar cliente",
-                "En esta pantalla usa el boton de alta (Nuevo), completa nombre, apellido, documento y contacto, y Guarda. Si el documento ya existe, el cliente no se duplica.",
-                "pcf_menu_clientes", "contenido"));
-            l.Add(new PasoCoach06AV("CU03 - Registrar venta",
-                "Ahora abri Ventas.",
-                "pcf_menu_ventas", "sidebar"));
-            l.Add(new PasoCoach06AV("CU03 - Registrar venta",
-                "Crea una Nueva venta, elegi el cliente y arma la computadora (un modelo estandar o a medida agregando componentes). El sistema valida compatibilidad y stock, y reserva los componentes al confirmar.",
-                "pcf_menu_ventas", "contenido"));
-            l.Add(new PasoCoach06AV("CU02 - Registrar senia y recibo",
-                "Sobre la venta recien creada, registra la senia (monto y forma de pago). Se emite el recibo y la venta queda seniada, lista para produccion.",
-                "pcf_menu_ventas", "contenido"));
-            l.Add(new PasoCoach06AV("CU04 a CU06 - Produccion",
-                "Pasa a Produccion.",
-                "pcf_menu_produccion", "sidebar"));
-            l.Add(new PasoCoach06AV("CU04 a CU06 - Produccion",
-                "Aca generas la orden sobre la venta seniada, asignas una linea de ensamblaje libre, marcas el armado y haces el control de calidad. Si se aprueba, queda lista para entregar.",
-                "pcf_menu_produccion", "contenido"));
-            l.Add(new PasoCoach06AV("CU07 - Entregar y facturar",
-                "Por ultimo, abri Entregas.",
-                "pcf_menu_entregas", "sidebar"));
-            l.Add(new PasoCoach06AV("CU07 - Entregar y facturar",
-                "Cobra el saldo pendiente, confirma la entrega y se emite la factura. Con esto termina la venta.",
-                "pcf_menu_entregas", "contenido"));
-            l.Add(new PasoCoach06AV("Listo",
-                "Ese es el circuito completo de PN1. Podes repetirlo cuando quieras desde la guia.",
-                null, "centro"));
-            return l;
+            var t = GestorIdioma06AV.Instancia;
+            return new PasoCoach06AV(t.Obtener(clave + "_tit"), t.Obtener(clave + "_txt"), modulo, objetivo);
         }
 
-        public static List<PasoCoach06AV> TourPN2()
+        public static List<PasoCoach06AV> TourPN1() => new List<PasoCoach06AV>
         {
-            var l = new List<PasoCoach06AV>();
-            l.Add(new PasoCoach06AV("Recorrido guiado: Compra de insumos",
-                "Te muestro como reponer stock con una compra completa (CU08 a CU12). Usa Siguiente y Anterior; podes cerrar cuando quieras.",
-                null, "centro"));
-            l.Add(new PasoCoach06AV("CU08 - Registrar orden de compra",
-                "Abri Compras.",
-                "pcf_menu_compras", "sidebar"));
-            l.Add(new PasoCoach06AV("CU08 - Registrar orden de compra",
-                "Crea una nueva orden de compra: elegi los insumos faltantes con su cantidad y la fecha limite, y confirma. La orden queda pendiente.",
-                "pcf_menu_compras", "contenido"));
-            l.Add(new PasoCoach06AV("CU09 - Proveedor",
-                "Si el proveedor no existe todavia, abri Proveedores para darlo de alta.",
-                "pcf_menu_proveedores", "sidebar"));
-            l.Add(new PasoCoach06AV("CU09 - Proveedor",
-                "Aca cargas o seleccionas el proveedor (nombre, CUIT, contacto). El sistema controla que el CUIT no este repetido.",
-                "pcf_menu_proveedores", "contenido"));
-            l.Add(new PasoCoach06AV("CU10 y CU11 - Cotizaciones",
-                "Abri Cotizaciones.",
-                "pcf_menu_cotizaciones", "sidebar"));
-            l.Add(new PasoCoach06AV("CU10 y CU11 - Cotizaciones",
-                "Pedi la cotizacion cargando el precio por item que ofrece el proveedor. Cuando el gerente la aprueba, se adjudica la oferta y la orden pasa a enviada.",
-                "pcf_menu_cotizaciones", "contenido"));
-            l.Add(new PasoCoach06AV("CU12 - Recibir y cerrar",
-                "Volve a Compras para cerrar el circuito.",
-                "pcf_menu_compras", "sidebar"));
-            l.Add(new PasoCoach06AV("CU12 - Recibir y cerrar",
-                "Registra la recepcion de la mercaderia, carga la factura del proveedor y cerra la compra. El stock de los componentes se repone y queda disponible para nuevas ventas.",
-                "pcf_menu_compras", "contenido"));
-            l.Add(new PasoCoach06AV("Listo",
-                "Ese es el circuito completo de PN2. El stock repuesto vuelve a estar disponible para el PN1.",
-                null, "centro"));
-            return l;
-        }
+            Paso("tour_pn1_01", null, "centro"),
+            Paso("tour_pn1_02", "pcf_menu_clientes", "sidebar"),
+            Paso("tour_pn1_03", "pcf_menu_clientes", "contenido"),
+            Paso("tour_pn1_04", "pcf_menu_ventas", "sidebar"),
+            Paso("tour_pn1_05", "pcf_menu_ventas", "contenido"),
+            Paso("tour_pn1_06", "pcf_menu_ventas", "contenido"),
+            Paso("tour_pn1_07", "pcf_menu_produccion", "sidebar"),
+            Paso("tour_pn1_08", "pcf_menu_produccion", "contenido"),
+            Paso("tour_pn1_09", "pcf_menu_entregas", "sidebar"),
+            Paso("tour_pn1_10", "pcf_menu_entregas", "contenido"),
+            Paso("tour_pn1_11", null, "centro")
+        };
+
+        public static List<PasoCoach06AV> TourPN2() => new List<PasoCoach06AV>
+        {
+            Paso("tour_pn2_01", null, "centro"),
+            Paso("tour_pn2_02", "pcf_menu_compras", "sidebar"),
+            Paso("tour_pn2_03", "pcf_menu_compras", "contenido"),
+            Paso("tour_pn2_04", "pcf_menu_proveedores", "sidebar"),
+            Paso("tour_pn2_05", "pcf_menu_proveedores", "contenido"),
+            Paso("tour_pn2_06", "pcf_menu_compras", "sidebar"),
+            Paso("tour_pn2_07", "pcf_menu_compras", "contenido"),
+            Paso("tour_pn2_08", "pcf_menu_compras", "contenido"),
+            Paso("tour_pn2_09", "pcf_menu_compras", "contenido"),
+            Paso("tour_pn2_10", null, "centro")
+        };
     }
 }

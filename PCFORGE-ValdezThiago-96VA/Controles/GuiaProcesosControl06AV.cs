@@ -18,18 +18,6 @@ namespace PCFORGE_ValdezThiago_96VA.Controles
     [DesignerCategory("Code")]
     public class GuiaProcesosControl06AV : UserControl, IIdiomaAplicable06AV
     {
-        private sealed class Paso06AV
-        {
-            public string Codigo;
-            public string Titulo;
-            public string Rol;
-            public string Donde;
-            public string ClaveModulo;
-            public string[] Pasos;
-            public string Resultado;
-            public string Problema;
-        }
-
         private readonly Label _lblTitulo = new Label { AutoSize = true };
         private readonly Label _lblSubtitulo = new Label { AutoSize = true };
         private readonly Button _btnPN1 = CrearToggle();
@@ -43,19 +31,16 @@ namespace PCFORGE_ValdezThiago_96VA.Controles
         private readonly Button _btnAbrir = CrearBoton();
         private readonly Label _lblProgreso = new Label { AutoSize = true, TextAlign = ContentAlignment.MiddleCenter };
 
-        private readonly List<Paso06AV> _pn1 = new List<Paso06AV>();
-        private readonly List<Paso06AV> _pn2 = new List<Paso06AV>();
         private readonly List<BotonPaso06AV> _botones = new List<BotonPaso06AV>();
 
         private bool _esPn1 = true;
         private int _indice;
 
-        private List<Paso06AV> Actual => _esPn1 ? _pn1 : _pn2;
+        private IReadOnlyList<PasoGuia06AV> Actual => _esPn1 ? DatosGuia06AV.Pn1 : DatosGuia06AV.Pn2;
 
         public GuiaProcesosControl06AV()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-            ConstruirDatos();
             ConstruirLayout();
 
             AplicarIdioma();
@@ -217,7 +202,7 @@ namespace PCFORGE_ValdezThiago_96VA.Controles
 
         // -- Dibujo del detalle ---------------------------------------------------------------
 
-        private void RenderizarDetalle(Paso06AV p)
+        private void RenderizarDetalle(PasoGuia06AV p)
         {
             var t = GestorIdioma06AV.Instancia;
             _flujo.SuspendLayout();
@@ -229,16 +214,18 @@ namespace PCFORGE_ValdezThiago_96VA.Controles
             _flujo.Controls.Add(Parrafo(t.Obtener("guia_donde") + ": " + p.Donde));
 
             _flujo.Controls.Add(Encabezado(t.Obtener("guia_pasos")));
-            for (int i = 0; i < p.Pasos.Length; i++)
-                _flujo.Controls.Add(Parrafo((i + 1) + ".  " + p.Pasos[i]));
+            string[] pasos = p.Pasos;
+            for (int i = 0; i < pasos.Length; i++)
+                _flujo.Controls.Add(Parrafo((i + 1) + ".  " + pasos[i]));
 
             _flujo.Controls.Add(Encabezado(t.Obtener("guia_resultado")));
             _flujo.Controls.Add(Parrafo(p.Resultado));
 
-            if (!string.IsNullOrEmpty(p.Problema))
+            string problema = p.Problema;
+            if (!string.IsNullOrEmpty(problema))
             {
                 _flujo.Controls.Add(Encabezado(t.Obtener("guia_problema")));
-                _flujo.Controls.Add(Parrafo(p.Problema));
+                _flujo.Controls.Add(Parrafo(problema));
             }
 
             _flujo.ResumeLayout();
@@ -334,7 +321,7 @@ namespace PCFORGE_ValdezThiago_96VA.Controles
             _btnSiguiente.Text = t.Obtener("guia_siguiente");
             _btnAbrir.Text = t.Obtener("guia_abrir");
             _btnRecorrido.Text = t.Obtener("guia_recorrido");
-            if (_botones.Count == 0) ConstruirBotonesLista();
+            ConstruirBotonesLista();
             IrA(_indice);
             ActualizarToggles();
         }
@@ -408,173 +395,6 @@ namespace PCFORGE_ValdezThiago_96VA.Controles
                 Cursor = Cursors.Hand,
                 TabStop = false
             };
-        }
-
-        // -- Contenido de los procesos --------------------------------------------------------
-
-        private void ConstruirDatos()
-        {
-            _pn1.Add(new Paso06AV
-            {
-                Codigo = "CU01", Titulo = "Registrar cliente",
-                Rol = "Ventas", Donde = "Maestro > Clientes", ClaveModulo = "pcf_menu_clientes",
-                Pasos = new[]
-                {
-                    "Entra al menu Clientes y elegi la opcion para dar de alta un cliente nuevo.",
-                    "Completa los datos obligatorios (nombre, apellido, documento, contacto). Los campos vacios o invalidos se marcan y el sistema no deja guardar.",
-                    "El sistema controla que el documento no este ya cargado. Si el cliente existe, no se duplica: buscalo en la grilla y usa el registro existente.",
-                    "Presiona Guardar."
-                },
-                Resultado = "Un mensaje de confirmacion y el cliente visible en la grilla, listo para elegirlo en una venta.",
-                Problema = "Un mensaje de datos incompletos significa que falta un campo obligatorio; uno de cliente duplicado significa que ya estaba registrado."
-            });
-            _pn1.Add(new Paso06AV
-            {
-                Codigo = "CU03", Titulo = "Registrar venta",
-                Rol = "Ventas", Donde = "Venta > Ventas", ClaveModulo = "pcf_menu_ventas",
-                Pasos = new[]
-                {
-                    "Elegi Nueva venta y selecciona el cliente (debe estar cargado, CU01).",
-                    "Defini la computadora: parti de un modelo predefinido o arma una configuracion a medida agregando componentes con su cantidad.",
-                    "El sistema valida la compatibilidad entre componentes y que haya stock disponible de cada uno.",
-                    "Revisa el precio pactado, que queda fijado en la venta aunque despues cambien los precios de lista.",
-                    "Confirma la venta."
-                },
-                Resultado = "La venta queda pendiente de senia y el sistema reserva el stock de los componentes para que nadie mas los use.",
-                Problema = "Si falta stock de un componente, el sistema lo informa y no confirma: cambia el componente o espera reposicion (PN2)."
-            });
-            _pn1.Add(new Paso06AV
-            {
-                Codigo = "CU02", Titulo = "Registrar senia y emitir recibo",
-                Rol = "Ventas / Caja", Donde = "Venta > Ventas (o Recibos)", ClaveModulo = "pcf_menu_ventas",
-                Pasos = new[]
-                {
-                    "Busca la venta en la grilla y elegi Registrar senia.",
-                    "Ingresa el monto y el medio de pago. El monto no puede ser cero ni superar el saldo.",
-                    "Confirma el pago.",
-                    "Imprimi o guarda el recibo para entregarselo al cliente."
-                },
-                Resultado = "El pago queda asociado a la venta, se emite el recibo y la venta pasa a seniada, habilitada para produccion.",
-                Problema = "Si rechaza el monto, revisa que no exceda lo adeudado; si la venta no aparece, verifica que no este ya seniada."
-            });
-            _pn1.Add(new Paso06AV
-            {
-                Codigo = "CU04", Titulo = "Generar orden de produccion",
-                Rol = "Produccion", Donde = "Produccion > Produccion", ClaveModulo = "pcf_menu_produccion",
-                Pasos = new[]
-                {
-                    "Abri la lista de ventas seniadas y elegi la que se va a fabricar.",
-                    "Selecciona Generar orden de produccion.",
-                    "Asigna una linea de ensamblaje libre (el sistema solo ofrece lineas disponibles).",
-                    "Confirma."
-                },
-                Resultado = "Se crea la orden, la linea queda ocupada y los componentes reservados pasan a consumirse del stock.",
-                Problema = "Si no hay lineas libres, espera a que se libere una (se libera al terminar un ensamblaje)."
-            });
-            _pn1.Add(new Paso06AV
-            {
-                Codigo = "CU05", Titulo = "Ensamblar computadora",
-                Rol = "Produccion", Donde = "Produccion > Produccion", ClaveModulo = "pcf_menu_produccion",
-                Pasos = new[]
-                {
-                    "Abri la orden y marca el inicio del ensamblaje.",
-                    "Al terminar el armado fisico, registra la finalizacion de la orden."
-                },
-                Resultado = "La orden pasa a ensamblada y queda lista para el control de calidad. La linea de ensamblaje se libera.",
-                Problema = null
-            });
-            _pn1.Add(new Paso06AV
-            {
-                Codigo = "CU06", Titulo = "Controlar calidad",
-                Rol = "Calidad", Donde = "Produccion > Produccion", ClaveModulo = "pcf_menu_produccion",
-                Pasos = new[]
-                {
-                    "Busca las ordenes ensambladas pendientes de control.",
-                    "Abri la orden y completa el control con las verificaciones y observaciones.",
-                    "Elegi el resultado: aprobado o rechazado."
-                },
-                Resultado = "Si se aprueba, la computadora queda lista para entrega; si se rechaza, vuelve a produccion y se repite el control.",
-                Problema = "Un rechazo no es un error del sistema, es parte del proceso: anota siempre la causa en las observaciones."
-            });
-            _pn1.Add(new Paso06AV
-            {
-                Codigo = "CU07", Titulo = "Entregar computadora y emitir factura",
-                Rol = "Ventas / Entregas", Donde = "Venta > Entregas", ClaveModulo = "pcf_menu_entregas",
-                Pasos = new[]
-                {
-                    "Busca la venta lista para entregar.",
-                    "Registra el cobro del saldo restante, si lo hay (no se habilita la entrega con deuda).",
-                    "Confirma la entrega.",
-                    "Imprimi la factura y entregasela al cliente junto con la computadora."
-                },
-                Resultado = "La venta pasa a entregada y el sistema emite la factura de venta. Con esto termina PN1.",
-                Problema = "Si no permite entregar, revisa que la calidad este aprobada y que el saldo este cancelado."
-            });
-
-            _pn2.Add(new Paso06AV
-            {
-                Codigo = "CU08", Titulo = "Solicitar cotizacion",
-                Rol = "Compras", Donde = "Compra > Cotizaciones", ClaveModulo = "pcf_menu_cotizaciones",
-                Pasos = new[]
-                {
-                    "Elegi Nuevo pedido de cotizacion.",
-                    "Selecciona el proveedor y agrega los componentes con la cantidad que necesitas.",
-                    "Confirma."
-                },
-                Resultado = "El pedido queda registrado como enviado al proveedor, a la espera de su respuesta.",
-                Problema = "Si el proveedor no aparece, primero hay que darlo de alta en el maestro de proveedores."
-            });
-            _pn2.Add(new Paso06AV
-            {
-                Codigo = "CU09", Titulo = "Registrar cotizacion y generar orden de compra",
-                Rol = "Compras", Donde = "Compra > Cotizaciones / Compras", ClaveModulo = "pcf_menu_compras",
-                Pasos = new[]
-                {
-                    "Abri el pedido de cotizacion pendiente.",
-                    "Carga los precios unitarios que respondio el proveedor para cada componente.",
-                    "Si la oferta conviene, elegi Generar orden de compra."
-                },
-                Resultado = "Se crea la orden de compra con los precios cotizados y queda emitida al proveedor.",
-                Problema = "No se puede generar la orden si falta el precio de algun item."
-            });
-            _pn2.Add(new Paso06AV
-            {
-                Codigo = "CU10", Titulo = "Recibir mercaderia",
-                Rol = "Compras / Deposito", Donde = "Compra > Compras", ClaveModulo = "pcf_menu_compras",
-                Pasos = new[]
-                {
-                    "Cuando llega la mercaderia, abri la orden de compra correspondiente.",
-                    "Verifica que lo recibido coincida con lo pedido y registra la recepcion."
-                },
-                Resultado = "El stock de cada componente aumenta con las cantidades recibidas y la orden pasa a recibida.",
-                Problema = "Si la mercaderia no coincide, no confirmes la recepcion y reclama al proveedor."
-            });
-            _pn2.Add(new Paso06AV
-            {
-                Codigo = "CU11", Titulo = "Registrar factura de compra",
-                Rol = "Compras / Administracion", Donde = "Compra > Compras", ClaveModulo = "pcf_menu_compras",
-                Pasos = new[]
-                {
-                    "Abri la orden de compra ya recibida.",
-                    "Carga los datos de la factura del proveedor (numero, fecha e importe).",
-                    "El sistema compara el importe con el total de la orden; si no coincide, avisa la diferencia.",
-                    "Confirma."
-                },
-                Resultado = "La factura queda asociada a la orden y a la compra.",
-                Problema = "Ante una diferencia de importe, revisa los precios cotizados en CU09 antes de forzar el registro."
-            });
-            _pn2.Add(new Paso06AV
-            {
-                Codigo = "CU12", Titulo = "Cerrar la compra",
-                Rol = "Compras / Administracion", Donde = "Compra > Compras", ClaveModulo = "pcf_menu_compras",
-                Pasos = new[]
-                {
-                    "Busca la compra con mercaderia recibida y factura registrada.",
-                    "Verifica que todo este conciliado y elegi Cerrar compra."
-                },
-                Resultado = "La compra pasa a cerrada y ya no admite cambios. El stock repuesto queda disponible para nuevas ventas en PN1.",
-                Problema = "El sistema no deja cerrar si falta la recepcion o la factura."
-            });
         }
     }
 

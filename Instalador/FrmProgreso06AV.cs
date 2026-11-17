@@ -33,7 +33,7 @@ namespace Instalador
 
         private void ConstruirUI()
         {
-            Text = "Instalación en curso";
+            Text = new InstaladorBLL06AV(_opciones).Describir(_opciones.Modo) + " en curso";
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -76,7 +76,8 @@ namespace Instalador
             chkAbrir = new CheckBox
             {
                 Text = "Abrir el sistema al finalizar",
-                Checked = true,
+                Checked = _opciones.AbrirAlFinalizar,
+                Visible = _opciones.AbrirAlFinalizar,
                 AutoSize = true,
                 Location = new Point(26, 380),
                 Enabled = false
@@ -115,7 +116,8 @@ namespace Instalador
         {
             try
             {
-                await Task.Run(() => new InstaladorBLL06AV(_opciones).Instalar(Log));
+                ResultadoInstalacion06AV resultado =
+                    await Task.Run(() => new InstaladorBLL06AV(_opciones).Ejecutar(Log));
 
                 var exes = ConfiguradorApp06AV.LocalizarTodosExeApp();
                 _exeApp = exes.Count > 0 ? exes[0] : null;
@@ -129,10 +131,13 @@ namespace Instalador
                         ? $"Configuración de la aplicación actualizada ({escritos} ubicación/es)."
                         : "Aviso: no se pudo actualizar la configuración de la aplicación.");
 
-                    string lnk = ConfiguradorApp06AV.CrearAccesoDirectoEscritorio(_exeApp);
-                    Log(lnk != null
-                        ? "Acceso directo creado en el Escritorio."
-                        : "Aviso: no se pudo crear el acceso directo en el Escritorio.");
+                    if (_opciones.CrearAccesoDirecto)
+                    {
+                        string lnk = ConfiguradorApp06AV.CrearAccesoDirectoEscritorio(_exeApp);
+                        Log(lnk != null
+                            ? "Acceso directo creado en el Escritorio."
+                            : "Aviso: no se pudo crear el acceso directo en el Escritorio.");
+                    }
                 }
                 else
                 {
@@ -142,8 +147,12 @@ namespace Instalador
 
                 Exito = true;
                 Log("");
-                Log("Instalación finalizada con éxito.");
-                lblTitulo.Text = "Instalación completada";
+                if (resultado.RutaBackupPrevio != null)
+                    Log("Backup previo guardado en el servidor: " + resultado.RutaBackupPrevio);
+                if (_opciones.Modo == ModoInstalacion06AV.Instalar || _opciones.Modo == ModoInstalacion06AV.ReinstalarLimpio)
+                    Log("Usuario inicial: admin / Admin1234 (se pide cambiarla en el primer ingreso).");
+                Log("Operación finalizada con éxito.");
+                lblTitulo.Text = "Operación completada";
                 lblTitulo.ForeColor = Ok;
             }
             catch (Exception ex)
@@ -151,7 +160,7 @@ namespace Instalador
                 Exito = false;
                 Log("");
                 Log("ERROR: " + ex.Message);
-                lblTitulo.Text = "La instalación falló";
+                lblTitulo.Text = "La operación falló";
                 lblTitulo.ForeColor = Error;
                 chkAbrir.Checked = false;
                 btnFinalizar.Text = "Cerrar";
@@ -160,7 +169,7 @@ namespace Instalador
             {
                 barra.Style = ProgressBarStyle.Continuous;
                 barra.Value = 100;
-                chkAbrir.Enabled = Exito && _exeApp != null;
+                chkAbrir.Enabled = Exito && _exeApp != null && _opciones.AbrirAlFinalizar;
                 btnFinalizar.Enabled = true;
                 ControlBox = true;
             }
@@ -168,7 +177,7 @@ namespace Instalador
 
         private void Finalizar()
         {
-            if (Exito && chkAbrir.Checked && _exeApp != null)
+            if (Exito && _opciones.AbrirAlFinalizar && chkAbrir.Checked && _exeApp != null)
             {
                 try
                 {

@@ -13,7 +13,7 @@ namespace Instalador
             if (RequiereConsola(args))
                 return EjecutarConsola(args);
 
-            return EjecutarAsistente();
+            return EjecutarAsistente(args);
         }
 
         private static bool RequiereConsola(string[] args)
@@ -31,6 +31,8 @@ namespace Instalador
                     case "--usuario":
                     case "--password":
                     case "--scripts":
+                    case "--modo":
+                    case "--backup":
                     case "--consola":
                         return true;
                 }
@@ -38,7 +40,7 @@ namespace Instalador
             return false;
         }
 
-        private static int EjecutarAsistente()
+        private static int EjecutarAsistente(string[] args)
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
@@ -53,6 +55,39 @@ namespace Instalador
 
             if (string.IsNullOrWhiteSpace(opciones.CarpetaScripts))
                 opciones.CarpetaScripts = CarpetaScriptsPorDefecto();
+
+            // Lanzado por el setup (Inno Setup): el setup crea los accesos directos y abre el sistema.
+            if (TieneFlag(args, "--desde-setup"))
+            {
+                opciones.CrearAccesoDirecto = false;
+                opciones.AbrirAlFinalizar = false;
+            }
+
+            var dal = new InstaladorDAL06AV(opciones);
+            try
+            {
+                if (dal.ExisteBaseDatos())
+                {
+                    string carpetaBackups = null;
+                    try { carpetaBackups = dal.CarpetaBackupServidor(); } catch {  }
+
+                    using (var modo = new FrmModo06AV(opciones, dal.ContarTablas(), dal.ContarUsuarios(), carpetaBackups))
+                    {
+                        if (modo.ShowDialog() != DialogResult.OK)
+                            return 2;
+                    }
+                }
+                else
+                {
+                    opciones.Modo = ModoInstalacion06AV.Instalar;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("No se pudo consultar la base de datos:\n\n" + ex.Message,
+                    "Instalador", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return 1;
+            }
 
             using (var progreso = new FrmProgreso06AV(opciones))
             {
@@ -69,6 +104,7 @@ namespace Instalador
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             Console.Title = "Instalador - PCFORGE-ValdezThiago-96VA";
 
+            bool silent = TieneFlag(args, "--silent");
             try
             {
                 if (TieneFlag(args, "--help") || TieneFlag(args, "-h"))
@@ -79,7 +115,6 @@ namespace Instalador
 
                 var opciones = ConstruirOpciones(args);
                 bool esTest = TieneFlag(args, "--test");
-                bool silent = TieneFlag(args, "--silent");
 
                 Console.WriteLine("======================================================");
                 Console.WriteLine("  INSTALADOR - Sistema PCFORGE-ValdezThiago-96VA");
@@ -88,6 +123,8 @@ namespace Instalador
                 Console.WriteLine($"  Base     : {opciones.BaseDatos}{(esTest ? " (modo prueba)" : "")}");
                 Console.WriteLine($"  Auth     : {(opciones.SeguridadIntegrada ? "Windows" : "SQL (" + opciones.Usuario + ")")}");
                 Console.WriteLine($"  Scripts  : {opciones.CarpetaScripts}");
+                if (!esTest)
+                    Console.WriteLine($"  Modo     : {DescribirModo(opciones)}");
                 Console.WriteLine("======================================================");
                 Console.WriteLine();
 
@@ -103,7 +140,9 @@ namespace Instalador
                     return ok ? 0 : 1;
                 }
 
-                new InstaladorBLL06AV(opciones).Instalar(Log);
+                ResultadoInstalacion06AV resultado = new InstaladorBLL06AV(opciones).Ejecutar(Log);
+                if (resultado.RutaBackupPrevio != null)
+                    Console.WriteLine($"Backup previo: {resultado.RutaBackupPrevio}");
 
                 var exes = ConfiguradorApp06AV.LocalizarTodosExeApp();
                 int escritos = 0;
@@ -115,9 +154,13 @@ namespace Instalador
                     : "Aviso: no se encontró el ejecutable del sistema para configurarlo.");
 
                 Console.WriteLine();
-                Console.WriteLine("Instalación completada. Credenciales iniciales:");
-                Console.WriteLine("   Login: admin   Contraseña: Admin1234");
-                Console.WriteLine("   (el sistema pedirá cambiarla en el primer ingreso)");
+                Console.WriteLine("Operación completada.");
+                if (opciones.Modo == ModoInstalacion06AV.Instalar || opciones.Modo == ModoInstalacion06AV.ReinstalarLimpio)
+                {
+                    Console.WriteLine("Credenciales iniciales:");
+                    Console.WriteLine("   Login: admin   Contraseña: Admin1234");
+                    Console.WriteLine("   (el sistema pedirá cambiarla en el primer ingreso)");
+                }
                 return 0;
             }
             catch (Exception ex)
@@ -130,7 +173,7 @@ namespace Instalador
             }
             finally
             {
-                if (EsInteractivo())
+                if (!silent && EsInteractivo())
                 {
                     Console.WriteLine();
                     Console.WriteLine("Presioná una tecla para salir...");
@@ -154,6 +197,31 @@ namespace Instalador
                 o.SeguridadIntegrada = false;
                 o.Usuario = usuario;
                 o.Contrasenia = ValorArg(args, "--password") ?? "";
+            }
+
+            if (TieneFlag(args, "--test"))
+                return o;
+
+            string modo = (ValorArg(args, "--modo") ?? "").Trim().ToLowerInvariant();
+            switch (modo)
+            {
+                case "":
+                    // Sin --modo: instalación nueva o, si la base ya existe, reparar.
+                    o.Modo = new InstaladorDAL06AV(o).ExisteBaseDatos()
+                        ? ModoInstalacion06AV.Reparar
+                        : ModoInstalacion06AV.Instalar;
+                    break;
+                case "instalar": o.Modo = ModoInstalacion06AV.Instalar; break;
+                case "reparar": o.Modo = ModoInstalacion06AV.Reparar; break;
+                case "reinstalar": o.Modo = ModoInstalacion06AV.ReinstalarLimpio; break;
+                case "restaurar":
+                    o.Modo = ModoInstalacion06AV.Restaurar;
+                    o.ArchivoRestore = ValorArg(args, "--backup");
+                    if (string.IsNullOrWhiteSpace(o.ArchivoRestore))
+                        throw new ArgumentException("--modo restaurar requiere --backup <ruta.bak>.");
+                    break;
+                default:
+                    throw new ArgumentException($"Modo desconocido: '{modo}'. Use instalar, reparar, reinstalar o restaurar.");
             }
 
             return o;
@@ -183,6 +251,12 @@ namespace Instalador
 
         private static void Log(string mensaje) => Console.WriteLine(mensaje);
 
+        private static string DescribirModo(OpcionesInstalacion06AV o)
+        {
+            string d = new InstaladorBLL06AV(o).Describir(o.Modo);
+            return o.Modo == ModoInstalacion06AV.Restaurar ? d + " (" + o.ArchivoRestore + ")" : d;
+        }
+
         private static bool Confirmar(string prompt)
         {
             Console.Write(prompt);
@@ -208,6 +282,10 @@ namespace Instalador
             Console.WriteLine("  --scripts <ruta>    Carpeta con los .sql (por defecto \\Scripts junto al exe).");
             Console.WriteLine("  --usuario <user>    Usa SQL Auth con ese usuario (si no, Windows Auth).");
             Console.WriteLine("  --password <pass>   Contraseña para SQL Auth.");
+            Console.WriteLine("  --modo <modo>       instalar | reparar | reinstalar | restaurar.");
+            Console.WriteLine("                      Sin --modo: instala, o repara si la base ya existe.");
+            Console.WriteLine("                      reparar/reinstalar/restaurar hacen backup previo automático.");
+            Console.WriteLine("  --backup <ruta.bak> Backup a restaurar (con --modo restaurar). Lo lee el servicio de SQL Server.");
             Console.WriteLine("  --test              Corre la prueba del instalador sobre una base temporal.");
             Console.WriteLine("  --silent            No pide confirmación.");
             Console.WriteLine("  --help              Muestra esta ayuda.");

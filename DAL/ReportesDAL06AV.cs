@@ -20,6 +20,19 @@ namespace DAL
             });
         }
 
+        public DataTable ObtenerStockParado(int diasVentana)
+        {
+            return EjecutarSP("sp_Reporte_StockParado", new Dictionary<string, object>
+            {
+                { "@DiasVentana", diasVentana }
+            });
+        }
+
+        public DataTable ObtenerComponentesVendidosJuntos()
+        {
+            return EjecutarSP("sp_Reporte_ComponentesVendidosJuntos", null);
+        }
+
         #region Helpers
 
         private DataTable EjecutarSP(string nombreSP, Dictionary<string, object> parametros)

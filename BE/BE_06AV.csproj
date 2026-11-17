@@ -68,6 +68,9 @@
     <Compile Include="PaqueteSerializado06AV.cs" />
     <Compile Include="ReporteVentas06AV.cs" />
     <Compile Include="VerificacionSerializacion06AV.cs" />
+    <Compile Include="FilaStockParado06AV.cs" />
+    <Compile Include="ComboSugerido06AV.cs" />
+    <Compile Include="ReporteCombos06AV.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
