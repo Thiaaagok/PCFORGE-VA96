@@ -22,7 +22,7 @@ namespace Instalador
                 if (!soyElPrimero)
                 {
                     if (!consola && !TraerInstanciaAlFrente())
-                        MessageBox.Show("El instalador ya está abierto en otra ventana.", "Instalador",
+                        MessageBox.Show("El instalador ya está abierto en otra ventana.", "PCFORGE",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return 3;
                 }
@@ -77,7 +77,7 @@ namespace Instalador
         {
             MessageBox.Show("Ocurrió un error inesperado en el instalador:\n\n" + (ex?.Message ?? "(sin detalle)") +
                             "\n\nNo se hizo ningún cambio que no figure en el registro de la instalación.",
-                "Instalador", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                "PCFORGE", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private static bool TraerInstanciaAlFrente()
@@ -173,7 +173,7 @@ namespace Instalador
                 AllocConsole();
 
             Console.OutputEncoding = System.Text.Encoding.UTF8;
-            Console.Title = "Instalador - PCFORGE-ValdezThiago-96VA";
+            Console.Title = "PCFORGE - Instalación del sistema";
 
             bool silent = TieneFlag(args, "--silent");
             try
@@ -343,7 +343,7 @@ namespace Instalador
 
         private static void MostrarAyuda()
         {
-            Console.WriteLine("Instalador del sistema PCFORGE-ValdezThiago-96VA");
+            Console.WriteLine("PCFORGE.exe - instalación del sistema PCFORGE-ValdezThiago-96VA");
             Console.WriteLine();
             Console.WriteLine("  (sin parámetros)    Abre el asistente gráfico de instalación.");
             Console.WriteLine("  --servidor <inst>   Instancia de SQL Server (por defecto '.').");

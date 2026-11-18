@@ -1,8 +1,8 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("Instalador")]
-[assembly: AssemblyDescription("Programa de instalación y preparación de la base de datos del sistema PCFORGE-ValdezThiago-96VA.")]
+[assembly: AssemblyTitle("PCFORGE")]
+[assembly: AssemblyDescription("Instalación de PCFORGE: sistema y base de datos.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("06AV")]
 [assembly: AssemblyProduct("PCFORGE-ValdezThiago-96VA")]

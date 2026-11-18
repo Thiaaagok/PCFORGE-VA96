@@ -78,11 +78,26 @@ BEGIN TRY
     IF @IdRolAdmin IS NULL
         RAISERROR('No se encontró el rol Administrador (por Descripcion o Codigo=ADM).', 16, 1);
 
+    -- Patentes que el Administrador ya recibe a través de sus familias (y subfamilias):
+    -- esas NO se asignan además en forma directa, porque el sistema no permite que una
+    -- patente esté repetida dentro del mismo rol (patrón Composite) y no dejaría iniciar sesión.
+    DECLARE @PorFamilias TABLE (IdPatente NVARCHAR(100) PRIMARY KEY);
+    ;WITH Arbol AS (
+        SELECT rf.IdFamilia AS IdFamilia FROM RolFamilias rf WHERE rf.IdRol = @IdRolAdmin
+        UNION ALL
+        SELECT ff.IdHijo FROM FamiliaFamilias ff INNER JOIN Arbol a ON ff.IdPadre = a.IdFamilia
+    )
+    INSERT INTO @PorFamilias (IdPatente)
+    SELECT DISTINCT fp.IdPatente
+    FROM   Arbol a INNER JOIN FamiliaPatentes fp ON fp.IdFamilia = a.IdFamilia
+    OPTION (MAXRECURSION 100);
+
     INSERT INTO RolPatentes (IdRol, IdPatente)
     SELECT @IdRolAdmin, p.Id
     FROM   @Patentes p
     WHERE  NOT EXISTS (SELECT 1 FROM RolPatentes rp
-                       WHERE rp.IdRol = @IdRolAdmin AND rp.IdPatente = p.Id);
+                       WHERE rp.IdRol = @IdRolAdmin AND rp.IdPatente = p.Id)
+      AND  NOT EXISTS (SELECT 1 FROM @PorFamilias pf WHERE pf.IdPatente = p.Id);
 
     DECLARE @NuevasAsignaciones INT = @@ROWCOUNT;
 

@@ -10,7 +10,7 @@ namespace Instalador
 {
     /// <summary>
     /// Instala los archivos del sistema. El .exe del sistema, sus DLL, el .config y la carpeta
-    /// Resources viajan dentro de Instalador.exe como recurso "Sistema.zip" (lo arma el target
+    /// Resources viajan dentro de PCFORGE.exe (el instalador) como recurso "Sistema.zip" (lo arma el target
     /// EmpaquetarSistema06AV de Instalador.csproj al compilar). Se extraen en
     /// Archivos de programa\PCFORGE, se crean los accesos del menú Inicio y se registra la
     /// aplicación en "Aplicaciones instaladas" para poder desinstalarla.
@@ -22,6 +22,11 @@ namespace Instalador
         private const string RecursoPaquete = "Sistema.zip";
         private const string ClaveDesinstalar = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PCFORGE-ValdezThiago-96VA";
         private const string NombreAcceso = "PCFORGE-ValdezThiago-96VA";
+        // Nombre de la copia del instalador que queda en la carpeta del sistema (reinstalar / desinstalar).
+        // No se llama PCFORGE.exe para no confundirla con el sistema, que está al lado.
+        public const string NombreCopiaInstalador = "PCFORGE-Instalador.exe";
+        private const string NombreCopiaAnterior = "Instalador.exe";   // nombre de versiones anteriores
+
         private const string NombreAccesoReinstalar = "Configurar o reinstalar la base de datos";
 
         public static string CarpetaPorDefecto =>
@@ -52,7 +57,7 @@ namespace Instalador
         {
             if (!TienePaquete())
                 throw new InvalidOperationException(
-                    "Este Instalador.exe no contiene el sistema. Compilá la solución completa en Release para generarlo.");
+                    "Este PCFORGE.exe no contiene el sistema. Compilá la solución completa en Release para generarlo.");
 
             string proceso = Path.GetFileNameWithoutExtension(ConfiguradorApp06AV.NombreExeApp);
             if (Process.GetProcessesByName(proceso).Length > 0)
@@ -84,9 +89,18 @@ namespace Instalador
 
             // El propio instalador queda en la carpeta: es el reinstalador y el desinstalador.
             string yo = Assembly.GetExecutingAssembly().Location;
-            string copia = Path.Combine(raiz, "Instalador.exe");
+            string copia = Path.Combine(raiz, NombreCopiaInstalador);
             if (!string.Equals(Path.GetFullPath(yo), Path.GetFullPath(copia), StringComparison.OrdinalIgnoreCase))
                 File.Copy(yo, copia, true);
+            // La copia con el nombre viejo (Instalador.exe) se reemplaza por la nueva.
+            string anterior = Path.Combine(raiz, NombreCopiaAnterior);
+            try
+            {
+                if (File.Exists(anterior) &&
+                    !string.Equals(Path.GetFullPath(yo), Path.GetFullPath(anterior), StringComparison.OrdinalIgnoreCase))
+                    File.Delete(anterior);
+            }
+            catch { }
 
             string exe = RutaExe(raiz);
             if (!File.Exists(exe))
@@ -105,7 +119,7 @@ namespace Instalador
                 bool ok = ConfiguradorApp06AV.CrearAcceso(Path.Combine(menu, NombreAcceso + ".lnk"), RutaExe(carpeta), null,
                               "Sistema PCFORGE-ValdezThiago-96VA", out string e1) != null
                           & ConfiguradorApp06AV.CrearAcceso(Path.Combine(menu, NombreAccesoReinstalar + ".lnk"),
-                              Path.Combine(carpeta, "Instalador.exe"), null, "Reparar, reinstalar o restaurar la base", out string e2) != null;
+                              Path.Combine(carpeta, NombreCopiaInstalador), null, "Reparar, reinstalar o restaurar la base", out string e2) != null;
                 log?.Invoke(ok ? "Accesos creados en el menú Inicio." : "Aviso: no se pudieron crear los accesos del menú Inicio: " + (e1 ?? e2));
             }
             catch (Exception ex)
@@ -127,7 +141,7 @@ namespace Instalador
             {
                 using (RegistryKey k = Registry.LocalMachine.CreateSubKey(ClaveDesinstalar))
                 {
-                    string instalador = Path.Combine(carpeta, "Instalador.exe");
+                    string instalador = Path.Combine(carpeta, NombreCopiaInstalador);
                     k.SetValue("DisplayName", "PCFORGE - Sistema de ensamblaje de PC");
                     k.SetValue("DisplayVersion", Version);
                     k.SetValue("Publisher", "Valdez Thiago - UAI");

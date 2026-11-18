@@ -159,7 +159,9 @@
     <Compile Include="UI\CoachMarks06AV.cs" />
     <Compile Include="UI\ManualAyuda06AV.cs" />
     <Compile Include="UI\AyudaContextual06AV.cs" />
-    <Compile Include="UI\GloboAyuda06AV.cs" />
+    <Compile Include="UI\GloboAyuda06AV.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\ModoAyudaMouse06AV.cs" />
     <Compile Include="UI\PanelAyuda06AV.cs" />
     <Compile Include="Controles\FacturasControl.cs" />

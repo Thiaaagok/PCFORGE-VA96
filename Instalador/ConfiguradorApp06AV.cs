@@ -136,14 +136,17 @@ namespace Instalador
         // Crea un acceso directo .lnk con WScript.Shell. Devuelve la ruta o null (con el motivo en error).
         public static string CrearAcceso(string rutaLnk, string destino, string argumentos, string descripcion, out string error)
         {
+            error = null;
             try
             {
-                if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+                if (string.IsNullOrEmpty(destino) || !File.Exists(destino))
+                {
+                    error = "No se encontró el ejecutable: " + destino;
                     return null;
+                }
 
-                string escritorio = Environment.GetFolderPath(
-                    Environment.SpecialFolder.DesktopDirectory);
-                string rutaLnk = Path.Combine(escritorio, nombreAcceso + ".lnk");
+                string carpeta = Path.GetDirectoryName(rutaLnk);
+                if (!string.IsNullOrEmpty(carpeta)) Directory.CreateDirectory(carpeta);
 
                 Type tipoShell = Type.GetTypeFromProgID("WScript.Shell");
                 if (tipoShell == null)

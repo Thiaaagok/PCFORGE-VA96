@@ -163,7 +163,7 @@ namespace PCFORGE_ValdezThiago_96VA
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
-            if (keyData == Keys.F1 && _modoAyuda != null)
+            if (keyData == Keys.Escape && CoachMarks06AV.CerrarActivo()) return true;
             {
                 if (!_modoAyuda.Activo && !_modoAyuda.MostrarBajoMouse())
                     AbrirPanelAyuda();

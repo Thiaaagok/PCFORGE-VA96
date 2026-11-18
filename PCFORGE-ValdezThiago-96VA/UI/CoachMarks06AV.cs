@@ -77,14 +77,22 @@ namespace PCFORGE_ValdezThiago_96VA.UI
             _tarjeta.Atras += () => { if (_i > 0) { _i--; Mostrar(); } };
             _tarjeta.Siguiente += () => { if (_i >= _pasos.Count - 1) Cerrar(); else { _i++; Mostrar(); } };
 
+            // El borde y la tarjeta son "propiedad" del velo: Windows siempre dibuja una ventana
+            // propia por encima de su dueña, así el velo nunca puede tapar la tarjeta (y dejar
+            // los botones sin poder tocarse) aunque la ventana principal se active o cambie de pantalla.
             _velo.Show(_main);
-            _marco.Show(_main);
-            _tarjeta.Show(_main);
+            _marco.Show(_velo);
+            _tarjeta.Show(_velo);
+            _velo.Tocado += TraerTarjeta;
 
             _main.Move += Seguir;
             _main.Resize += Seguir;
             _main.FormClosed += AlCerrarMain;
             Tema.TemaChanged += Mostrar;
+            // Si una pantalla abre un diálogo (error, confirmación…), el recorrido se oculta
+            // mientras tanto para que el diálogo quede a la vista y se pueda responder.
+            Application.EnterThreadModal += AlAbrirDialogo;
+            Application.LeaveThreadModal += AlCerrarDialogo;
 
             _i = 0;
             Mostrar();
@@ -169,7 +177,7 @@ namespace PCFORGE_ValdezThiago_96VA.UI
 
         private void Seguir(object sender, EventArgs e)
         {
-            if (_cerrado) return;
+            if (_cerrado || _enDialogo) return;
             bool minimizada = _main.WindowState == FormWindowState.Minimized;
             _velo.Visible = _tarjeta.Visible = !minimizada;
             if (minimizada) { _marco.Visible = false; return; }
@@ -178,7 +186,7 @@ namespace PCFORGE_ValdezThiago_96VA.UI
 
         private void Ubicar()
         {
-            if (_cerrado || _main.WindowState == FormWindowState.Minimized) return;
+            if (_cerrado || _enDialogo || _main.WindowState == FormWindowState.Minimized) return;
             Rectangle ventana = _main.RectangleToScreen(_main.ClientRectangle);
             _velo.Bounds = ventana;
 
@@ -203,7 +211,7 @@ namespace PCFORGE_ValdezThiago_96VA.UI
                 var aro = Rectangle.Inflate(f, 3, 3);
                 _marco.Bounds = aro;
                 _marco.ActualizarMarco(3);
-                if (!_marco.Visible) _marco.Show(_main);
+                if (!_marco.Visible) _marco.Show(_velo);
                 _tarjeta.Location = PosicionTarjeta(f, ventana, _tarjeta.Size);
             }
             else
@@ -239,6 +247,45 @@ namespace PCFORGE_ValdezThiago_96VA.UI
             return new Point(Ajustar(f.Right - t.Width - 24, xMin, xMax), Ajustar(f.Top + 24, yMin, yMax));
         }
 
+        private bool _enDialogo;
+
+        private void AlAbrirDialogo(object sender, EventArgs e)
+        {
+            if (_cerrado) return;
+            _enDialogo = true;
+            foreach (Form f in new Form[] { _tarjeta, _marco, _velo })
+                try { f.Visible = false; } catch { }
+        }
+
+        private void AlCerrarDialogo(object sender, EventArgs e)
+        {
+            if (_cerrado || !_enDialogo) return;
+            _enDialogo = false;
+            try
+            {
+                _velo.Visible = true;
+                _tarjeta.Visible = true;
+                Ubicar();
+                TraerTarjeta();
+            }
+            catch { }
+        }
+
+        private void TraerTarjeta()
+        {
+            if (_cerrado || _tarjeta == null || _tarjeta.IsDisposed) return;
+            _tarjeta.BringToFront();
+            _tarjeta.Activate();
+        }
+
+        /// <summary>Cierra el recorrido en curso, si hay uno (Esc desde la ventana principal).</summary>
+        public static bool CerrarActivo()
+        {
+            if (_activo == null) return false;
+            _activo.Cerrar();
+            return true;
+        }
+
         public void Cerrar()
         {
             if (_cerrado) return;
@@ -246,6 +293,8 @@ namespace PCFORGE_ValdezThiago_96VA.UI
             if (_activo == this) _activo = null;
             try { _main.Move -= Seguir; _main.Resize -= Seguir; _main.FormClosed -= AlCerrarMain; } catch { }
             Tema.TemaChanged -= Mostrar;
+            Application.EnterThreadModal -= AlAbrirDialogo;
+            Application.LeaveThreadModal -= AlCerrarDialogo;
             foreach (Form f in new Form[] { _tarjeta, _marco, _velo })
                 try { if (f != null) { f.Close(); f.Dispose(); } } catch { }
             try { if (!_main.IsDisposed) _main.Activate(); } catch { }
@@ -276,6 +325,15 @@ namespace PCFORGE_ValdezThiago_96VA.UI
             }
 
             protected override bool ShowWithoutActivation => true;
+
+            /// <summary>Clic sobre la zona oscura: no hace nada en el sistema, solo vuelve a mostrar la tarjeta.</summary>
+            public event Action Tocado;
+
+            protected override void OnMouseDown(MouseEventArgs e)
+            {
+                base.OnMouseDown(e);
+                Tocado?.Invoke();
+            }
 
             public void Hueco(Rectangle? local)
             {
