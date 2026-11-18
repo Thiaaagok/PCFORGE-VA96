@@ -14,7 +14,7 @@ namespace BLL
     ///
     /// 1. Rotación: por componente, días sin rotar (desde la última venta no anulada o,
     ///    si nunca se vendió, desde el alta) y meses de cobertura (stock libre / consumo
-    ///    mensual de la ventana). Es "stock parado" si supera el umbral de días o la
+    ///    mensual de la ventana). Sin ventas se cuenta desde la última recepción de mercadería. Es "stock parado" si supera el umbral de días o la
     ///    cobertura máxima.
     /// 2. Combo: cada componente parado (ancla, de mayor a menor capital inmovilizado)
     ///    se completa con piezas del tipo que lo vuelve vendible (plantilla por tipo),
@@ -103,7 +103,9 @@ namespace BLL
 
         private static void CalcularRotacion(FilaStockParado06AV f, ParametrosReporteCombos06AV p, DateTime hoy)
         {
-            DateTime? referencia = f.UltimaVenta ?? f.FechaAlta ?? f.UltimoIngreso;
+            // Componentes_C guarda solo la versión vigente y la anterior: su fecha más vieja no
+            // es el alta real, por eso se usa como último recurso.
+            DateTime? referencia = f.UltimaVenta ?? f.UltimoIngreso ?? f.FechaAlta;
             f.DiasSinRotar = referencia.HasValue ? Math.Max(0, (hoy - referencia.Value.Date).Days) : 0;
 
             decimal consumoMensual = f.VendidasVentana / (p.DiasVentana / 30m);

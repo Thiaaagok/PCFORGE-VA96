@@ -49,6 +49,7 @@ namespace PCFORGE_ValdezThiago_96VA
 
             ConfigurarGestionBackups();
             IniciarAvisos();
+            ProgramarBienvenida();
 
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged += PantallaCambiada;
             FormClosed += (s, e) => Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= PantallaCambiada;
@@ -410,6 +411,7 @@ namespace PCFORGE_ValdezThiago_96VA
             }
             TematizarBotonAvisos();
             TematizarBotonAyuda();
+            TematizarBotonesVentana();
 
             ConfigurarPanelUsuario();
             ConfigurarMenuUsuario();
@@ -497,6 +499,7 @@ namespace PCFORGE_ValdezThiago_96VA
             toolTipMain.SetToolTip(btnCerrarSesion, t.Obtener("cerrar_sesion"));
             ActualizarTooltipAvisos();
             ActualizarTooltipAyuda();
+            ActualizarTooltipsVentana();
             toolTipMain.SetToolTip(opcionesUsuarioBTN, t.Obtener("usuario"));
         }
 
@@ -546,6 +549,7 @@ namespace PCFORGE_ValdezThiago_96VA
             CrearBotonTema();
             CrearBotonAvisos();
             CrearBotonAyuda();
+            CrearBotonesVentana();
 
             ConfigurarPanelUsuario();
             ConfigurarMenuUsuario();
@@ -755,7 +759,10 @@ namespace PCFORGE_ValdezThiago_96VA
         {
             if (string.IsNullOrEmpty(clave)) return null;
             foreach (var it in flpModulos.Controls.OfType<ItemSidebar06AV>())
-                if (string.Equals(it.Tag as string, clave, StringComparison.OrdinalIgnoreCase)) return it;
+            {
+                string claveItem = it.Tag is GrupoSidebar g ? g.Clave : it.Tag as string;
+                if (string.Equals(claveItem, clave, StringComparison.OrdinalIgnoreCase)) return it;
+            }
             return null;
         }
 

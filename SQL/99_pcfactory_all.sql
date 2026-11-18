@@ -1427,7 +1427,13 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM @Cambiados) RETURN;
 
-    -- 1) Se apaga la versión vigente...
+    -- 0) Solo se guarda UNA versión anterior: se descarta la anterior previa.
+    DELETE C
+    FROM   Componentes_C C
+    INNER JOIN @Cambiados X ON X.Codigo = C.CodigoComponente
+    WHERE  C.Act = 0;
+
+    -- 1) Se apaga la versión vigente (pasa a ser la anterior)...
     UPDATE C
     SET    C.Act = 0
     FROM   Componentes_C C

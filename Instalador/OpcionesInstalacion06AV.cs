@@ -29,6 +29,11 @@ namespace Instalador
         // no este proceso: tiene que ser accesible para la cuenta del servicio.
         public string ArchivoRestore { get; set; }
 
+        // Copiar los archivos del sistema (Sistema.zip embebido) antes de preparar la base.
+        public bool InstalarSistema { get; set; } = true;
+
+        public string CarpetaInstalacion { get; set; } = InstaladorSistema06AV.CarpetaInstalada();
+
         public bool CrearAccesoDirecto { get; set; } = true;
 
         public bool AbrirAlFinalizar { get; set; } = true;
@@ -49,7 +54,8 @@ namespace Instalador
             var b = new SqlConnectionStringBuilder
             {
                 DataSource = Servidor,
-                InitialCatalog = catalogo
+                InitialCatalog = catalogo,
+                ConnectTimeout = 10
             };
 
             if (SeguridadIntegrada)

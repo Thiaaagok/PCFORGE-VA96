@@ -6,13 +6,14 @@
 --  sobre Componentes a través de los SP de 21_pcfactory_componentes.sql y
 --  NUNCA escribe en Componentes_C.
 --
---  · Componentes_C guarda una fila por cada versión del componente.
---    Act = 1 marca la versión VIGENTE; hay a lo sumo una por código
---    (índice único filtrado UX_ComponentesC_UnicoActivo).
+--  · Componentes_C guarda, por componente, como máximo DOS filas: la versión
+--    VIGENTE (Act = 1) y la ANTERIOR (Act = 0). Hay a lo sumo una vigente por
+--    código (índice único filtrado UX_ComponentesC_UnicoActivo).
 --  · TR_Componentes_Insert         → alta: primera versión, Act = 1.
---  · TR_Componentes_Update         → modificación o baja lógica: apaga la
---    versión anterior (Act = 0) y agrega la nueva (Act = 1). El orden
---    UPDATE → INSERT es obligatorio: al revés el índice único se rompe.
+--  · TR_Componentes_Update         → modificación o baja lógica: borra la
+--    anterior previa, la vigente pasa a anterior (Act = 0) y se agrega la
+--    nueva (Act = 1). El orden DELETE → UPDATE → INSERT es obligatorio: al
+--    revés el índice único se rompe.
 --  · TR_Componentes_BloquearDelete → prohíbe el borrado físico.
 --
 --  RUIDO DE STOCK: reservar / liberar reserva NO genera versión nueva
@@ -116,7 +117,13 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM @Cambiados) RETURN;
 
-    -- 1) Se apaga la versión vigente...
+    -- 0) Solo se guarda UNA versión anterior: se descarta la anterior previa.
+    DELETE C
+    FROM   Componentes_C C
+    INNER JOIN @Cambiados X ON X.Codigo = C.CodigoComponente
+    WHERE  C.Act = 0;
+
+    -- 1) Se apaga la versión vigente (pasa a ser la anterior)...
     UPDATE C
     SET    C.Act = 0
     FROM   Componentes_C C
@@ -175,9 +182,9 @@ END
 GO
 
 -- ── Bitácora: restaurar una versión histórica ────────────────
---  Escribe sobre Componentes (nunca sobre Componentes_C): es el trigger de
---  UPDATE el que apaga la versión vigente y asienta la restauración como una
---  versión nueva. Así la bitácora nunca pierde el historial.
+--  Escribe sobre Componentes (nunca sobre Componentes_C): el trigger de
+--  UPDATE hace el intercambio. La versión restaurada pasa a ser la vigente y
+--  la que estaba vigente queda como anterior (se puede volver a activar).
 CREATE OR ALTER PROCEDURE sp_ComponentesC_Activar
     @IdHistorico INT
 AS
@@ -232,6 +239,18 @@ SELECT c.Codigo,
 FROM   Componentes c
 WHERE  NOT EXISTS (SELECT 1 FROM Componentes_C h
                    WHERE h.CodigoComponente = c.Codigo AND h.Act = 1);
+GO
+
+-- ── Depuración: deja solo la versión anterior más reciente ──
+--  Bases creadas con el trigger viejo guardaban todas las versiones.
+;WITH Anteriores AS (
+    SELECT IdHistorico,
+           ROW_NUMBER() OVER (PARTITION BY CodigoComponente
+                              ORDER BY Fecha DESC, Hora DESC, IdHistorico DESC) AS n
+    FROM   Componentes_C
+    WHERE  Act = 0
+)
+DELETE FROM Anteriores WHERE n > 1;
 GO
 
 PRINT 'Bitácora de cambios de Componentes (Componentes_C + triggers) creada/actualizada.';

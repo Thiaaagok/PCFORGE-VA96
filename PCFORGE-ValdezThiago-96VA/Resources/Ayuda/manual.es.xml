@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manual de uso de PCFORGE (español). Lo lee UI\ManualAyuda06AV.cs.
+  seccion: grupo del árbol. flujo="true" dibuja el recorrido de los casos de uso de la sección.
+  tema: codigo (CU según tabla G04), modulo (clave del menú que abre «Ir a la pantalla»),
+        recorrido (pn1 / pn2: recorrido guiado sobre el sistema real).
+  Hijos de tema: resumen, antes (requisito previo), paso (titulo + detalle), valida (control
+        del sistema), resultado, problema (sintoma + solución), ver (id de un tema relacionado).
+-->
+<manual>
+  <seccion id="inicio" titulo="Primeros pasos">
+    <tema id="ingreso" titulo="Ingresar al sistema" rol="Todos los usuarios" pantalla="Pantalla de inicio de sesión">
+      <resumen>Cada persona entra con su propio usuario. Los permisos de su rol definen qué menús y acciones ve.</resumen>
+      <antes>Tener un usuario creado por el administrador (Admin › Usuarios).</antes>
+      <antes>En una instalación nueva el primer usuario es admin con la contraseña Admin1234.</antes>
+      <paso titulo="Escribí tu usuario y contraseña">El usuario (login) lo genera el sistema al crear la cuenta y te lo informa el administrador.</paso>
+      <paso titulo="Presioná Ingresar">El sistema valida las credenciales y controla la integridad de los datos antes de abrir la pantalla principal.</paso>
+      <paso titulo="Cambiá la contraseña si te lo pide">En el primer ingreso, o después de un desbloqueo, la contraseña inicial se debe reemplazar por una propia.</paso>
+      <valida>Después de 3 intentos fallidos seguidos el usuario queda bloqueado.</valida>
+      <valida>Un usuario inactivo no puede ingresar.</valida>
+      <valida>Si los dígitos verificadores no coinciden se abre la pantalla de inconsistencia de datos.</valida>
+      <resultado>Se abre la pantalla principal con el menú que corresponde a tus permisos y el ingreso queda en la bitácora.</resultado>
+      <problema sintoma="«Usuario bloqueado»">Pedile al administrador que te desbloquee desde Admin › Usuarios › Desbloquear.</problema>
+      <problema sintoma="«Inconsistencia de datos» al ingresar">Alguien modificó datos por fuera del sistema. Solo un administrador puede recalcular el dígito verificador o restaurar un backup.</problema>
+      <ver>preferencias</ver>
+      <ver>integridad</ver>
+    </tema>
+    <tema id="pantalla" titulo="Conocer la pantalla principal" rol="Todos los usuarios" pantalla="Pantalla principal" modulo="menu_inicio">
+      <resumen>La pantalla tiene tres zonas: el menú lateral, la barra superior y el área de trabajo donde se abre cada pantalla.</resumen>
+      <paso titulo="Menú lateral">Agrupa las pantallas en Admin, Maestro, Compra, Venta, Producción, Reportes y Ayuda. Solo aparecen las que tu rol tiene permitidas. La flecha de arriba lo contrae.</paso>
+      <paso titulo="Barra superior">De izquierda a derecha: «?» (ayuda de la pantalla actual), campana (notificaciones), sol/luna (tema claro u oscuro), idioma y Cerrar sesión.</paso>
+      <paso titulo="Tarjeta de usuario">Arriba del menú. Al hacer clic abre las opciones de tu cuenta: cambiar contraseña, idioma, relogin (volver a ingresar) y gestión de backups.</paso>
+      <paso titulo="Inicio">Muestra los indicadores del día y accesos directos a los procesos principales.</paso>
+      <resultado>Sabés dónde está cada función y cómo volver al inicio.</resultado>
+      <ver>ayuda</ver>
+      <ver>notificaciones</ver>
+    </tema>
+    <tema id="preferencias" titulo="Contraseña, idioma y tema" rol="Todos los usuarios" pantalla="Tarjeta de usuario y barra superior">
+      <resumen>Cada usuario puede cambiar su contraseña y elegir el idioma (español, inglés o portugués) y el tema visual.</resumen>
+      <paso titulo="Cambiar la contraseña">Tarjeta de usuario › Cambiar contraseña. Ingresá la actual y dos veces la nueva. Después vas a tener que ingresar de nuevo.</paso>
+      <paso titulo="Cambiar el idioma">Botón del idioma en la barra superior. Todas las pantallas se traducen al instante.</paso>
+      <paso titulo="Cambiar el tema">Botón sol/luna de la barra superior: alterna entre tema claro y oscuro.</paso>
+      <valida>La nueva contraseña debe ser distinta de la actual y escribirse igual las dos veces.</valida>
+      <resultado>Las preferencias quedan aplicadas para tu sesión.</resultado>
+    </tema>
+    <tema id="ayuda" titulo="Cómo pedir ayuda" rol="Todos los usuarios" pantalla="Cualquier pantalla">
+      <resumen>Además de esta guía, la ayuda está disponible en cada pantalla y sobre cada botón.</resumen>
+      <paso titulo="Ayuda de la pantalla (F1 o «?»)">Abre un panel a la derecha con qué hace la pantalla, los casos de uso que se trabajan en ella y la explicación de cada botón visible.</paso>
+      <paso titulo="Ayuda con el mouse (Shift+F1)">El cursor cambia a «?». Al pasar sobre un botón, campo o grilla aparece su explicación. Hacer clic no ejecuta la acción. Esc para salir.</paso>
+      <paso titulo="F1 sobre un control">Con el mouse encima de un botón, F1 muestra directamente la ayuda de ese botón.</paso>
+      <paso titulo="Recorrido guiado">Desde esta guía, «Recorrido en el sistema» resalta cada menú y pantalla de un proceso completo, paso a paso.</paso>
+      <resultado>Encontrás la explicación sin salir de lo que estás haciendo.</resultado>
+    </tema>
+    <tema id="notificaciones" titulo="Notificaciones y avisos" rol="Todos los usuarios" pantalla="Campana de la barra superior">
+      <resumen>El sistema revisa la información y avisa de lo que requiere atención. El número de la campana indica los avisos sin leer.</resumen>
+      <paso titulo="Abrí la campana">Se despliega la lista de avisos, los más nuevos arriba.</paso>
+      <paso titulo="Hacé clic en un aviso">Abre el aviso para resolverlo. El tilde lo marca como leído; también se pueden marcar todos juntos.</paso>
+      <valida>Avisos que se generan: stock bajo el mínimo, orden de compra atrasada, producción atrasada, entrega vencida y control de calidad rechazado.</valida>
+      <resultado>Los pendientes importantes no se pasan por alto.</resultado>
+    </tema>
+  </seccion>
+
+  <seccion id="pn1" titulo="PN1 · Venta de computadoras" flujo="true">
+    <tema id="pn1_intro" titulo="Cómo funciona la venta" rol="Recepcionista, gerente de producción, responsable técnico" pantalla="Venta y Producción" recorrido="pn1">
+      <resumen>Una venta va desde que el cliente pide un equipo hasta que se lo lleva armado y facturado. Se cobra una seña al vender y el saldo al entregar.</resumen>
+      <paso titulo="Cliente (CU01)">Se registra el cliente, o se elige si ya existe.</paso>
+      <paso titulo="Venta (CU03)">Se elige un modelo estándar o se arma uno a medida; se reservan los componentes.</paso>
+      <paso titulo="Seña (CU02)">Se cobra el 50 % y se emite el recibo. La venta queda lista para producción.</paso>
+      <paso titulo="Producción (CU04 a CU06)">Se genera la orden, se asigna una línea de ensamblaje, se arma y se cierra con control de calidad.</paso>
+      <paso titulo="Entrega (CU07)">Se cobra el saldo, se emite la factura y se entrega el equipo.</paso>
+      <resultado>El equipo queda entregado con número de serie y factura, y el stock descontado.</resultado>
+      <ver>cu01</ver>
+    </tema>
+    <tema id="cu01" codigo="CU01" titulo="Registrar cliente" rol="Recepcionista" pantalla="Maestro › Clientes (o «Nuevo cliente» dentro de la venta)" modulo="pcf_menu_clientes" recorrido="pn1">
+      <resumen>Da de alta a la persona que compra, para poder asociarle la venta, el recibo y la factura.</resumen>
+      <antes>Tener el documento del cliente.</antes>
+      <paso titulo="Abrí Clientes y presioná Nuevo">También se puede hacer desde la venta con «Nuevo cliente», sin salir de ella.</paso>
+      <paso titulo="Completá los datos">Nombre, apellido, documento y contacto (teléfono y email).</paso>
+      <paso titulo="Presioná Guardar">El sistema valida los datos y registra el cliente.</paso>
+      <valida>Los campos obligatorios no pueden quedar vacíos y deben tener un formato válido.</valida>
+      <valida>El documento no puede repetirse: un cliente existente no se duplica.</valida>
+      <resultado>El cliente queda registrado y disponible para elegirlo en una venta.</resultado>
+      <problema sintoma="«Cliente duplicado»">El documento ya estaba cargado: buscalo en la grilla y usá ese registro.</problema>
+      <ver>cu03</ver>
+    </tema>
+    <tema id="cu03" codigo="CU03" titulo="Registrar venta" rol="Recepcionista" pantalla="Venta › Ventas" modulo="pcf_menu_ventas" recorrido="pn1">
+      <resumen>Registra qué equipo compra el cliente y a qué precio, y reserva los componentes para armarlo.</resumen>
+      <antes>Cliente registrado (CU01).</antes>
+      <antes>Componentes con stock libre suficiente.</antes>
+      <paso titulo="Presioná Nueva venta">Se abre el asistente de venta.</paso>
+      <paso titulo="Elegí el cliente">Buscalo por nombre o documento. Si no existe, usá «Nuevo cliente».</paso>
+      <paso titulo="Elegí el tipo de equipo">Modelo estándar (configuración ya definida) o configuración a medida.</paso>
+      <paso titulo="Definí el equipo">Si es estándar, elegí el modelo. Si es a medida, usá «Armá tu PC…» y elegí cada componente: el sistema muestra solo lo compatible y con stock.</paso>
+      <paso titulo="Revisá el resumen">Componentes, precio total y seña a cobrar.</paso>
+      <paso titulo="Continuá al cobro de la seña">Botón «Continuar: cobrar seña» (CU02).</paso>
+      <valida>Las reglas de compatibilidad impiden combinar piezas incompatibles (socket, tipo de memoria, consumo).</valida>
+      <valida>Los componentes elegidos se reservan: el stock físico recién baja al cerrar la producción.</valida>
+      <resultado>La venta queda registrada con su precio fijado y los componentes reservados.</resultado>
+      <problema sintoma="«Componente sin stock»">Elegí otro componente compatible o esperá la reposición (PN2).</problema>
+      <problema sintoma="Una pieza aparece incompatible">Revisá la regla indicada en el mensaje o elegí otra pieza.</problema>
+      <ver>cu02</ver>
+      <ver>reglas</ver>
+    </tema>
+    <tema id="cu02" codigo="CU02" titulo="Registrar seña y emitir recibo" rol="Recepcionista" pantalla="Venta › Ventas (último paso de la venta)" modulo="pcf_menu_ventas" recorrido="pn1">
+      <resumen>Cobra el anticipo del 50 % que confirma la venta y entrega al cliente el comprobante.</resumen>
+      <antes>Venta armada (CU03).</antes>
+      <paso titulo="Elegí la forma de pago">Efectivo, transferencia o tarjeta. Con tarjeta se piden sus datos.</paso>
+      <paso titulo="Revisá el monto">La seña es el 50 % del total; se muestra también el saldo a pagar en la entrega.</paso>
+      <paso titulo="Presioná «Registrar seña»">El sistema registra el pago y emite el recibo en PDF.</paso>
+      <paso titulo="Entregá el recibo">Guardalo o imprimilo. Incluye cliente, equipo, monto abonado, saldo y fecha estimada de entrega.</paso>
+      <valida>Un pago con tarjeta rechazado no registra la seña.</valida>
+      <resultado>La venta pasa a «Señada» y queda habilitada para producción.</resultado>
+      <problema sintoma="Pago con tarjeta rechazado">Revisá los datos de la tarjeta o elegí otra forma de pago.</problema>
+      <problema sintoma="El cliente perdió el recibo">Reimprimilo desde Venta › Recibos de seña.</problema>
+      <ver>cu04</ver>
+      <ver>recibos</ver>
+    </tema>
+    <tema id="cu04" codigo="CU04" titulo="Gestionar orden de producción" rol="Gerente de producción" pantalla="Producción › Producción" modulo="pcf_menu_produccion" recorrido="pn1">
+      <resumen>Genera la orden que manda a armar el equipo de una venta señada.</resumen>
+      <antes>Venta en estado «Señada» (CU02).</antes>
+      <paso titulo="Presioná Nueva orden">Se listan las ventas señadas que todavía no tienen orden.</paso>
+      <paso titulo="Elegí la venta">Revisá el cliente, el equipo y sus componentes.</paso>
+      <paso titulo="Confirmá la fecha de entrega estimada">Es la fecha que se le informa al cliente.</paso>
+      <paso titulo="Presioná «Registrar orden»">La orden queda creada.</paso>
+      <valida>Cada venta puede tener una sola orden de producción.</valida>
+      <resultado>La orden queda en estado «Pendiente», lista para asignarle una línea (CU05).</resultado>
+      <problema sintoma="«No hay ventas disponibles»">No hay ventas señadas sin orden: primero hay que cobrar la seña.</problema>
+      <ver>cu05</ver>
+    </tema>
+    <tema id="cu05" codigo="CU05" titulo="Asignar línea de ensamblaje" rol="Gerente de producción" pantalla="Producción › Producción" modulo="pcf_menu_produccion" recorrido="pn1">
+      <resumen>Planifica dónde, cuándo y quién arma el equipo.</resumen>
+      <antes>Orden «Pendiente» (CU04).</antes>
+      <antes>Al menos una línea de ensamblaje disponible.</antes>
+      <paso titulo="Seleccioná la orden y presioná «Asignar línea»">Se abre la planificación.</paso>
+      <paso titulo="Elegí una línea disponible">Solo se ofrecen las líneas libres.</paso>
+      <paso titulo="Indicá fecha de inicio y responsable técnico">El responsable es quien después cierra la orden.</paso>
+      <paso titulo="Presioná Asignar">La línea queda ocupada por esta orden.</paso>
+      <paso titulo="Iniciá el ensamblaje">Cuando empieza el armado físico, «Iniciar ensamblaje» pasa la orden a «En ensamblaje».</paso>
+      <resultado>La orden queda «Planificada» con línea, fecha y responsable, y después «En ensamblaje».</resultado>
+      <problema sintoma="«Sin líneas disponibles»">La orden espera hasta que se libere una línea (se libera al cerrar otra orden).</problema>
+      <ver>cu06</ver>
+      <ver>lineas</ver>
+    </tema>
+    <tema id="cu06" codigo="CU06" titulo="Cerrar orden de producción" rol="Responsable técnico" pantalla="Producción › Producción" modulo="pcf_menu_produccion" recorrido="pn1">
+      <resumen>Verifica el equipo terminado y lo da por fabricado.</resumen>
+      <antes>Orden «En ensamblaje» (CU05).</antes>
+      <paso titulo="Seleccioná la orden y presioná «Cerrar orden»">Se muestra el detalle de la orden y sus componentes.</paso>
+      <paso titulo="Completá el control de calidad">Cuatro verificaciones: enciende correctamente, conexiones verificadas, sistema operativo instalado y drivers funcionando.</paso>
+      <paso titulo="Confirmá el cierre">Si pasa las cuatro pruebas, la orden se cierra.</paso>
+      <valida>Sin las cuatro verificaciones aprobadas la orden no se puede cerrar.</valida>
+      <resultado>La orden pasa a «Finalizada»: se asigna número de serie, se descuenta el stock usado y se libera la línea.</resultado>
+      <problema sintoma="El equipo no pasa el control">Registrá la falla: la orden queda «En revisión» y se repite con «Reintentar control». También se genera una notificación.</problema>
+      <ver>cu07</ver>
+    </tema>
+    <tema id="cu07" codigo="CU07" titulo="Entregar computadora" rol="Recepcionista" pantalla="Venta › Entrega de computadoras" modulo="pcf_menu_entregas" recorrido="pn1">
+      <resumen>Cobra el saldo, factura y entrega el equipo al cliente. Cierra el ciclo de la venta.</resumen>
+      <antes>Orden «Finalizada» (CU06).</antes>
+      <paso titulo="Buscá la orden">Por número de orden o por DNI del cliente.</paso>
+      <paso titulo="Revisá los datos">Seña abonada, saldo pendiente y número de serie del equipo.</paso>
+      <paso titulo="Cobrá el saldo">Elegí la forma de pago y presioná «Registrar entrega».</paso>
+      <paso titulo="Confirmá la entrega">«Confirmar entrega» emite la factura con anticipo, saldo y número de serie.</paso>
+      <resultado>La venta queda «Entregada» y la factura disponible en Venta › Facturas.</resultado>
+      <problema sintoma="«Orden no encontrada»">Verificá el número o el DNI. Solo aparecen órdenes finalizadas.</problema>
+      <ver>facturas</ver>
+    </tema>
+  </seccion>
+
+  <seccion id="pn2" titulo="PN2 · Compra de insumos" flujo="true">
+    <tema id="pn2_intro" titulo="Cómo funciona la compra" rol="Repositor, gerente de compras" pantalla="Compra" recorrido="pn2">
+      <resumen>Repone los componentes que quedaron bajo el stock mínimo, desde el pedido hasta que la mercadería entra al depósito.</resumen>
+      <paso titulo="Orden de compra (CU08)">El repositor arma la orden con los faltantes.</paso>
+      <paso titulo="Proveedor (CU09)">Se elige un proveedor activo o se da de alta uno nuevo.</paso>
+      <paso titulo="Cotización (CU10)">Se carga el precio que ofrece cada proveedor. Se pueden comparar varias ofertas.</paso>
+      <paso titulo="Aprobación (CU11)">El gerente de compras aprueba la mejor oferta y se emite la orden al proveedor.</paso>
+      <paso titulo="Recepción (CU12)">Se registra lo que llegó y la factura; el stock sube y la orden se cierra.</paso>
+      <resultado>El stock queda repuesto y disponible para nuevas ventas (PN1).</resultado>
+      <ver>cu08</ver>
+    </tema>
+    <tema id="cu08" codigo="CU08" titulo="Registrar orden de compra" rol="Repositor" pantalla="Compra › Compras" modulo="pcf_menu_compras" recorrido="pn2">
+      <resumen>Arma el pedido de los componentes que hay que reponer.</resumen>
+      <paso titulo="Presioná Nueva orden">Se listan los componentes; los que están bajo el mínimo aparecen resaltados.</paso>
+      <paso titulo="Elegí los faltantes">Uno por uno o con «Elegir todos los críticos».</paso>
+      <paso titulo="Indicá la cantidad de cada uno">La cantidad a pedir de cada componente elegido.</paso>
+      <paso titulo="Ingresá la fecha límite">Fecha en la que se necesita la mercadería.</paso>
+      <paso titulo="Presioná «Registrar orden»">Se genera el número de compra.</paso>
+      <valida>Un componente no puede estar en dos órdenes abiertas a la vez: los ya pedidos aparecen deshabilitados.</valida>
+      <resultado>La orden queda «Pendiente», esperando cotización.</resultado>
+      <ver>cu09</ver>
+      <ver>stock</ver>
+    </tema>
+    <tema id="cu09" codigo="CU09" titulo="Registrar / seleccionar proveedor" rol="Repositor" pantalla="Compra › Compras («Pedir cotización») o Maestro › Proveedores" modulo="pcf_menu_compras" recorrido="pn2">
+      <resumen>Define a qué proveedor se le pide precio.</resumen>
+      <antes>Orden de compra «Pendiente» (CU08).</antes>
+      <paso titulo="Seleccioná la orden y presioná «Pedir cotización»">Se abre la carga de la cotización.</paso>
+      <paso titulo="Elegí un proveedor activo">De la lista de proveedores que pueden cumplir la demanda.</paso>
+      <paso titulo="Si no existe, registralo">«Nuevo proveedor»: nombre, CUIT, email, teléfono y dirección.</paso>
+      <valida>El CUIT se valida y no puede repetirse.</valida>
+      <valida>Un proveedor que ya tiene una oferta abierta para esa orden aparece bloqueado.</valida>
+      <resultado>El proveedor queda asociado a la cotización de la orden.</resultado>
+      <ver>cu10</ver>
+      <ver>proveedores</ver>
+    </tema>
+    <tema id="cu10" codigo="CU10" titulo="Generar solicitud de cotización" rol="Repositor" pantalla="Compra › Compras o Compra › Cotizaciones" modulo="pcf_menu_compras" recorrido="pn2">
+      <resumen>Registra cuánto cobra el proveedor por cada insumo de la orden.</resumen>
+      <antes>Proveedor elegido (CU09).</antes>
+      <paso titulo="Cargá el precio unitario de cada insumo">El total de la oferta se calcula solo.</paso>
+      <paso titulo="Revisá el resumen">Número de compra, insumos, total ofrecido y condiciones.</paso>
+      <paso titulo="Presioná «Registrar cotización»">La oferta queda registrada.</paso>
+      <paso titulo="Sumá otras ofertas (opcional)">Desde Cotizaciones › «Sumar otra oferta» para comparar proveedores.</paso>
+      <valida>No se puede registrar si falta el precio de algún ítem.</valida>
+      <resultado>La cotización queda «Por aprobar» para el gerente de compras.</resultado>
+      <ver>cu11</ver>
+      <ver>cotizaciones</ver>
+    </tema>
+    <tema id="cu11" codigo="CU11" titulo="Aprobar solicitud de cotización" rol="Gerente de compras" pantalla="Compra › Compras" modulo="pcf_menu_compras" recorrido="pn2">
+      <resumen>Decide a qué proveedor se le compra.</resumen>
+      <antes>Al menos una cotización «Por aprobar» (CU10).</antes>
+      <paso titulo="Seleccioná la orden">Se muestran sus ofertas con insumos, precios y proveedor.</paso>
+      <paso titulo="Compará las ofertas">Total, precio por ítem y proveedor.</paso>
+      <paso titulo="Aprobá o rechazá">«Aprobar» en la oferta elegida, o «Rechazar» si no conviene.</paso>
+      <resultado>La oferta aprobada se adjudica: se emite la orden de compra al proveedor y la orden pasa a «Enviada».</resultado>
+      <problema sintoma="Ninguna oferta conviene">Rechazalas: el sistema avisa al repositor para pedir otra cotización (CU10).</problema>
+      <ver>cu12</ver>
+    </tema>
+    <tema id="cu12" codigo="CU12" titulo="Recibir insumos y cerrar orden de compra" rol="Repositor" pantalla="Compra › Compras" modulo="pcf_menu_compras" recorrido="pn2">
+      <resumen>Registra la mercadería que llegó y la factura del proveedor; repone el stock.</resumen>
+      <antes>Orden «Enviada» (CU11).</antes>
+      <paso titulo="Seleccioná la orden y presioná «Recibir insumos»">Se abre la recepción.</paso>
+      <paso titulo="Marcá lo que llegó">«Llegó todo», «No llegó nada» o la cantidad recibida de cada ítem.</paso>
+      <paso titulo="Cargá la factura del proveedor">Número, fecha y total facturado.</paso>
+      <paso titulo="Confirmá la recepción">El stock sube solo con lo recibido.</paso>
+      <paso titulo="Cerrá o registrá el pago">Si el resto no va a llegar, «Cerrar con faltante». El pago al proveedor se registra con «Registrar pago».</paso>
+      <valida>Si el total facturado no coincide con lo cotizado, el sistema muestra la diferencia antes de confirmar.</valida>
+      <resultado>La orden queda «Finalizada» (o «Recibida parcial» si falta algo) y el stock repuesto vuelve a estar disponible para PN1.</resultado>
+      <ver>rep_proveedores</ver>
+    </tema>
+  </seccion>
+
+  <seccion id="maestros" titulo="Datos maestros">
+    <tema id="clientes" titulo="Clientes" rol="Recepcionista" pantalla="Maestro › Clientes" modulo="pcf_menu_clientes">
+      <resumen>Alta, modificación y baja de clientes. El alta también se puede hacer desde la venta.</resumen>
+      <paso titulo="Buscar">Escribí parte del nombre o del documento.</paso>
+      <paso titulo="Nuevo / Editar">Abre el formulario; Guardar valida y registra.</paso>
+      <paso titulo="Eliminar">Pide confirmación y queda en la bitácora.</paso>
+      <valida>El documento no se puede repetir.</valida>
+      <resultado>El padrón de clientes queda actualizado.</resultado>
+      <ver>cu01</ver>
+    </tema>
+    <tema id="proveedores" titulo="Proveedores" rol="Repositor" pantalla="Maestro › Proveedores" modulo="pcf_menu_proveedores">
+      <resumen>Padrón de proveedores a los que se les piden cotizaciones.</resumen>
+      <paso titulo="Nuevo">Nombre, CUIT, email, teléfono y dirección.</paso>
+      <paso titulo="Activo">Solo los proveedores activos reciben pedidos de cotización. Desmarcarlo es la baja sin perder su historial.</paso>
+      <valida>El CUIT se valida (dígito verificador) y no puede repetirse.</valida>
+      <resultado>El proveedor queda disponible al pedir cotizaciones.</resultado>
+      <ver>cu09</ver>
+    </tema>
+    <tema id="componentes" titulo="Componentes" rol="Repositor, administrador" pantalla="Maestro › Componentes" modulo="pcf_menu_componentes">
+      <resumen>Catálogo de piezas con precio, stock y stock mínimo. Es la base de las ventas y las compras.</resumen>
+      <paso titulo="Nuevo">Código, tipo, descripción, marca, modelo, precio, stock y stock mínimo.</paso>
+      <paso titulo="Especificaciones técnicas…">Datos que usa la compatibilidad (socket, memoria, consumo, formato).</paso>
+      <paso titulo="Editar / Eliminar">Sobre el componente seleccionado. La baja es lógica: no se borra.</paso>
+      <valida>Cada cambio queda registrado en la bitácora de componentes.</valida>
+      <valida>Bajo el stock mínimo se genera un aviso de stock bajo.</valida>
+      <resultado>El componente queda disponible para armar equipos y para pedir.</resultado>
+      <ver>especificaciones</ver>
+      <ver>bitacora_comp</ver>
+    </tema>
+    <tema id="especificaciones" titulo="Especificaciones técnicas" rol="Repositor, administrador" pantalla="Maestro › Componentes › Especificaciones técnicas…" modulo="pcf_menu_componentes">
+      <resumen>Describen cada pieza para que el armado valide la compatibilidad automáticamente.</resumen>
+      <paso titulo="Abrí las especificaciones">Seleccioná el componente y presioná «Especificaciones técnicas…».</paso>
+      <paso titulo="Completar automáticamente">Deduce los datos de la marca, el modelo y la descripción. Revisalos antes de guardar.</paso>
+      <paso titulo="Guardá">Las reglas de compatibilidad usan estos datos.</paso>
+      <resultado>El armado de PC ofrece solo piezas que encajan entre sí.</resultado>
+      <ver>reglas</ver>
+    </tema>
+    <tema id="bitacora_comp" titulo="Bitácora de componentes" rol="Administrador" pantalla="Maestro › Bitácora de componentes" modulo="pcf_menu_bitacora_comp">
+      <resumen>Por cada componente guarda la versión vigente y la anterior, para ver qué cambió y deshacerlo.</resumen>
+      <paso titulo="Filtrá">Por código, descripción o fechas, y presioná Filtrar.</paso>
+      <paso titulo="Compará">La fila marcada como vigente es la actual; la otra es la anterior.</paso>
+      <paso titulo="Activar">Sobre la versión anterior: vuelve a dejarla vigente. La que estaba vigente pasa a ser la anterior.</paso>
+      <valida>Los cambios de reserva de stock no generan versión.</valida>
+      <resultado>El componente recupera los datos de la versión elegida.</resultado>
+    </tema>
+    <tema id="modelos" titulo="Modelos estándar" rol="Administrador" pantalla="Maestro › Modelos estándar" modulo="pcf_menu_modelos">
+      <resumen>Configuraciones predefinidas que se ofrecen en la venta sin armar pieza por pieza.</resumen>
+      <paso titulo="Nuevo">Nombre y tipo de equipo.</paso>
+      <paso titulo="Armá tu PC…">Elegí cada componente; el sistema valida compatibilidad.</paso>
+      <paso titulo="Guardá">El precio sale de la suma de las piezas.</paso>
+      <resultado>El modelo queda disponible en el asistente de venta.</resultado>
+      <ver>cu03</ver>
+    </tema>
+    <tema id="reglas" titulo="Reglas de compatibilidad" rol="Administrador" pantalla="Maestro › Reglas de compatibilidad" modulo="cmp_menu_reglas">
+      <resumen>Condiciones entre piezas que el armado controla, por ejemplo que el socket del procesador coincida con el de la placa madre.</resumen>
+      <paso titulo="Elegí las piezas">Qué pieza se controla y con cuál se compara.</paso>
+      <paso titulo="Definí la condición">Sobre una especificación: es igual a, es distinto de, es menor o igual a, es mayor o igual a o contiene.</paso>
+      <paso titulo="Qué pasa si no se cumple">Advertencia (deja seguir) o incompatible (bloquea).</paso>
+      <paso titulo="Revisá cómo se lee y guardá">«Regla activa» la aplica; desmarcada se ignora sin borrarla.</paso>
+      <resultado>El armado de PC aplica la regla en ventas y modelos.</resultado>
+    </tema>
+    <tema id="lineas" titulo="Líneas de ensamblaje" rol="Gerente de producción" pantalla="Producción › Líneas de ensamblaje" modulo="pcf_menu_lineas">
+      <resumen>Puestos donde se arman los equipos. Cada línea arma una orden a la vez.</resumen>
+      <paso titulo="Nuevo">Nombre de la línea.</paso>
+      <paso titulo="Disponible">Marcado si puede recibir órdenes.</paso>
+      <valida>Una línea ocupada se libera sola al cerrar su orden.</valida>
+      <resultado>Las líneas disponibles aparecen al asignar una orden (CU05).</resultado>
+      <ver>cu05</ver>
+    </tema>
+  </seccion>
+
+  <seccion id="consultas" titulo="Consultas y comprobantes">
+    <tema id="stock" titulo="Consultar stock" rol="Repositor, recepcionista" pantalla="Compra › Consultar stock" modulo="menu_consultar_stock">
+      <resumen>Muestra, por componente, el stock físico, el reservado por ventas y el libre.</resumen>
+      <paso titulo="Buscá el componente">Por código o descripción.</paso>
+      <paso titulo="Leé las columnas">Libre = físico − reservado. Es lo que se puede vender.</paso>
+      <paso titulo="Resaltados">Los que están bajo el mínimo: conviene reponerlos (CU08).</paso>
+      <resultado>Sabés qué se puede vender y qué hay que comprar.</resultado>
+      <ver>cu08</ver>
+    </tema>
+    <tema id="cotizaciones" titulo="Cotizaciones" rol="Repositor, gerente de compras" pantalla="Compra › Cotizaciones" modulo="pcf_menu_cotizaciones">
+      <resumen>Reúne las órdenes pendientes y las ofertas recibidas de cada proveedor.</resumen>
+      <paso titulo="Órdenes">Elegí una orden pendiente y «Pedir cotización a un proveedor».</paso>
+      <paso titulo="Ofertas recibidas">Compará las ofertas de cada orden y sumá otras con «Sumar otra oferta».</paso>
+      <resultado>Las ofertas quedan listas para la aprobación (CU11).</resultado>
+      <ver>cu10</ver>
+    </tema>
+    <tema id="recibos" titulo="Recibos de seña" rol="Recepcionista" pantalla="Venta › Recibos de seña" modulo="pcf_menu_recibos">
+      <resumen>Todos los recibos emitidos al cobrar señas.</resumen>
+      <paso titulo="Seleccioná el recibo">En la lista de recibos emitidos.</paso>
+      <paso titulo="Reimprimir recibo">Genera de nuevo el PDF del recibo seleccionado.</paso>
+      <resultado>El cliente recupera su comprobante.</resultado>
+    </tema>
+    <tema id="facturas" titulo="Facturas" rol="Recepcionista" pantalla="Venta › Facturas" modulo="menu_facturas">
+      <resumen>Facturas de venta emitidas en cada entrega.</resumen>
+      <paso titulo="Seleccioná la factura">En la lista de facturas emitidas.</paso>
+      <paso titulo="Abrir factura">Muestra el PDF para verlo o imprimirlo.</paso>
+      <resultado>La factura queda disponible siempre que se la necesite.</resultado>
+    </tema>
+  </seccion>
+
+  <seccion id="reportes" titulo="Reportes">
+    <tema id="rep_ventas" titulo="Ventas y producción" rol="Gerencia" pantalla="Reportes › Ventas y producción" modulo="menu_rep_ventas">
+      <resumen>Cada venta del período con su cobro, su orden de producción y su entrega, más indicadores.</resumen>
+      <paso titulo="Elegí el período y los criterios">Desde/hasta, estado, tipo de equipo y cliente.</paso>
+      <paso titulo="Generar reporte">Muestra indicadores y el detalle por venta.</paso>
+      <paso titulo="Solo atrasadas">Filtra las entregas vencidas.</paso>
+      <paso titulo="Exportar">PDF para presentar o Excel para trabajar los datos.</paso>
+      <resultado>Tenés el estado comercial y productivo del período.</resultado>
+    </tema>
+    <tema id="rep_proveedores" titulo="Proveedores" rol="Gerente de compras" pantalla="Reportes › Proveedores" modulo="menu_rep_proveedores">
+      <resumen>Lo que cotizó cada proveedor, las órdenes que ganó y el total comprado.</resumen>
+      <paso titulo="Filtrá">Por texto, estado o tipo de componente que provee.</paso>
+      <paso titulo="Con compras">Muestra solo los que tienen órdenes adjudicadas.</paso>
+      <paso titulo="Exportar">PDF o Excel.</paso>
+      <resultado>Sabés con qué proveedores conviene trabajar.</resultado>
+    </tema>
+    <tema id="rep_combos" titulo="Combos por stock parado (reporte inteligente)" rol="Gerencia comercial" pantalla="Reportes › Combos por stock parado" modulo="menu_rep_combos">
+      <resumen>Detecta el stock inmovilizado y propone combos compatibles para liquidarlo, con precio, margen y probabilidad de venta.</resumen>
+      <paso titulo="Ajustá los parámetros">Días sin rotar (umbral) y ventana de ventas en días. Presioná Generar.</paso>
+      <paso titulo="Revisá los indicadores">Componentes parados, capital inmovilizado, combos propuestos e ingreso potencial.</paso>
+      <paso titulo="Revisá los combos">Prioridad, piezas, público objetivo, precio con descuento, margen y probabilidad. Pasá el mouse sobre un combo para ver sus piezas.</paso>
+      <paso titulo="Filtrá">Por público (oficina, gamer, diseño) o prioridad.</paso>
+      <paso titulo="Exportar">El PDF incluye la explicación del cálculo.</paso>
+      <valida>El descuento nunca deja el combo por debajo del margen mínimo sobre el costo.</valida>
+      <valida>Un costo marcado con * es estimado: el componente no tiene cotización aprobada con precio.</valida>
+      <resultado>Tenés una lista priorizada de ofertas listas para publicar.</resultado>
+    </tema>
+  </seccion>
+
+  <seccion id="seguridad" titulo="Seguridad y administración">
+    <tema id="usuarios" titulo="Usuarios" rol="Administrador" pantalla="Admin › Usuarios" modulo="usuarios">
+      <resumen>Alta, modificación, activación y desbloqueo de las personas que usan el sistema.</resumen>
+      <paso titulo="Crear">DNI, apellido, nombre, email y rol. El sistema genera el login y una contraseña inicial. Aplicar confirma.</paso>
+      <paso titulo="Modificar">Solo se pueden cambiar el email y el rol. Aplicar confirma.</paso>
+      <paso titulo="Act. / Desact.">Habilita o inhabilita el ingreso del usuario seleccionado.</paso>
+      <paso titulo="Desbloquear">Libera a un usuario bloqueado por intentos fallidos.</paso>
+      <valida>El DNI tiene 7 u 8 dígitos y no puede repetirse.</valida>
+      <resultado>Cada persona entra con su usuario y los permisos de su rol.</resultado>
+      <ver>roles</ver>
+    </tema>
+    <tema id="roles" titulo="Roles" rol="Administrador" pantalla="Admin › Roles" modulo="titulo_roles">
+      <resumen>Un rol agrupa familias y patentes. Cada usuario tiene un rol.</resumen>
+      <paso titulo="Elegí o creá un rol">Con Nuevo, o seleccionándolo de la lista.</paso>
+      <paso titulo="Agregá permisos">Familias y patentes desde las listas de disponibles.</paso>
+      <paso titulo="Quitá lo que no corresponda y guardá">Los usuarios ven el cambio al volver a ingresar.</paso>
+      <valida>No se permiten patentes repetidas en el rol.</valida>
+      <resultado>El rol queda con los permisos exactos para su tarea.</resultado>
+      <ver>familias</ver>
+    </tema>
+    <tema id="familias" titulo="Familias de permisos" rol="Administrador" pantalla="Admin › Familias" modulo="titulo_familias">
+      <resumen>Agrupan patentes y otras familias (patrón Composite) para asignarlas juntas.</resumen>
+      <paso titulo="Nueva">Escribí la descripción.</paso>
+      <paso titulo="Agregá patentes o subfamilias">Desde las listas de disponibles.</paso>
+      <paso titulo="Guardá">Una familia necesita al menos una patente o subfamilia.</paso>
+      <valida>Se bloquean los ciclos (una familia no puede contenerse a sí misma) y las patentes repetidas en toda la rama.</valida>
+      <resultado>La familia se puede asignar a cualquier rol.</resultado>
+    </tema>
+    <tema id="patentes" titulo="Patentes" rol="Administrador" pantalla="Admin › Patentes" modulo="titulo_patentes">
+      <resumen>Listado de los permisos atómicos: cada patente habilita una pantalla o acción.</resumen>
+      <paso titulo="Consultá">Revisá qué habilita cada patente antes de armar roles y familias.</paso>
+      <resultado>Sabés qué permiso dar para cada tarea.</resultado>
+    </tema>
+    <tema id="bitacora" titulo="Bitácora de eventos" rol="Administrador" pantalla="Admin › Bitácora" modulo="bitacora">
+      <resumen>Registro de quién hizo qué y cuándo: ingresos, altas, cambios y errores.</resumen>
+      <paso titulo="Elegí el rango de fechas">Fecha desde y hasta.</paso>
+      <paso titulo="Filtrá">Por usuario, módulo, evento o criticidad.</paso>
+      <paso titulo="Exportá">PDF o Excel.</paso>
+      <valida>La fecha inicial no puede ser mayor que la final.</valida>
+      <resultado>Tenés la trazabilidad de las operaciones.</resultado>
+    </tema>
+    <tema id="backup" titulo="Backups" rol="Administrador" pantalla="Admin › Gestión de backups (o tarjeta de usuario)">
+      <resumen>El sistema hace un backup automático cada 3 horas. También se puede generar uno manual o restaurar.</resumen>
+      <paso titulo="Generar backup">Guarda una copia completa de la base en la carpeta de backups.</paso>
+      <paso titulo="Restaurar">«Elegir archivo y restaurar»: reemplaza la base por el backup elegido.</paso>
+      <valida>Restaurar pide confirmación: se pierden los datos posteriores al backup.</valida>
+      <resultado>Los datos quedan protegidos y recuperables.</resultado>
+      <ver>integridad</ver>
+    </tema>
+    <tema id="integridad" titulo="Integridad de datos" rol="Administrador" pantalla="Aparece al ingresar">
+      <resumen>Los dígitos verificadores detectan si alguien modificó datos protegidos por fuera del sistema.</resumen>
+      <paso titulo="Leé el detalle">La pantalla indica qué tablas y registros no coinciden.</paso>
+      <paso titulo="Recalcular el DV">Acepta los datos actuales como válidos. Usalo solo si el cambio es legítimo.</paso>
+      <paso titulo="Restaurar">Vuelve la base al último backup confiable.</paso>
+      <paso titulo="Salir">Cierra el sistema sin tocar nada.</paso>
+      <resultado>La base vuelve a un estado íntegro y la decisión queda en la bitácora.</resultado>
+      <ver>backup</ver>
+    </tema>
+    <tema id="serializacion" titulo="Serialización" rol="Administrador" pantalla="Admin › Serialización" modulo="menu_serializacion">
+      <resumen>Guarda ventas del sistema en un archivo XML y lo vuelve a leer para verificar que coincide con la base.</resumen>
+      <paso titulo="Elegí la operación">Serializar (pasos 1 a 4) o des-serializar (pasos 5 a 8).</paso>
+      <paso titulo="Elegí la carpeta y los objetos">Con «Examinar…» y las casillas de cada objeto.</paso>
+      <paso titulo="Ejecutá y verificá">El resultado indica por objeto si coincide, difiere o falta.</paso>
+      <resultado>Tenés un respaldo portable y verificado de las ventas.</resultado>
+    </tema>
+  </seccion>
+
+  <seccion id="faq" titulo="Preguntas frecuentes">
+    <tema id="faq_menu" titulo="No veo una opción del menú">
+      <resumen>El menú muestra solo lo que tu rol permite. Pedile al administrador que agregue la patente o familia correspondiente a tu rol y volvé a ingresar.</resumen>
+      <ver>roles</ver>
+    </tema>
+    <tema id="faq_bloqueo" titulo="Quedé bloqueado o me olvidé la contraseña">
+      <resumen>Tras 3 intentos fallidos el usuario se bloquea. El administrador lo desbloquea desde Admin › Usuarios; en el próximo ingreso el sistema te va a pedir una contraseña nueva.</resumen>
+      <ver>usuarios</ver>
+    </tema>
+    <tema id="faq_sin_stock" titulo="No puedo vender porque falta stock">
+      <resumen>Consultá el stock libre (físico menos reservado). Si no alcanza, elegí otra pieza compatible o generá una orden de compra (CU08); al recibirla el stock vuelve a estar disponible.</resumen>
+      <ver>stock</ver>
+      <ver>cu08</ver>
+    </tema>
+    <tema id="faq_reservado" titulo="El stock no bajó después de vender">
+      <resumen>Es correcto: la venta solo reserva los componentes. El stock físico baja cuando se cierra la orden de producción (CU06). Si la venta se anula, la reserva se libera.</resumen>
+      <ver>cu06</ver>
+    </tema>
+    <tema id="faq_incompatible" titulo="El armado dice que una pieza es incompatible">
+      <resumen>Una regla de compatibilidad la está bloqueando (socket, memoria, consumo). Elegí otra pieza o revisá las especificaciones técnicas del componente si los datos están mal cargados.</resumen>
+      <ver>reglas</ver>
+      <ver>especificaciones</ver>
+    </tema>
+    <tema id="faq_sin_linea" titulo="No puedo asignar una línea a la orden">
+      <resumen>Todas las líneas están ocupadas. Se libera una al cerrar su orden (CU06); también se puede dar de alta una línea nueva en Producción › Líneas de ensamblaje.</resumen>
+      <ver>lineas</ver>
+    </tema>
+    <tema id="faq_integridad" titulo="Al ingresar aparece «Inconsistencia de datos»">
+      <resumen>Se modificaron datos protegidos por fuera del sistema. Si no fue un cambio legítimo, restaurá el último backup; si lo fue, un administrador puede recalcular el dígito verificador.</resumen>
+      <ver>integridad</ver>
+    </tema>
+    <tema id="faq_comprobante" titulo="Necesito reimprimir un recibo o una factura">
+      <resumen>Los recibos de seña están en Venta › Recibos de seña y las facturas en Venta › Facturas. Ambos se vuelven a generar en PDF.</resumen>
+      <ver>recibos</ver>
+      <ver>facturas</ver>
+    </tema>
+  </seccion>
+</manual>

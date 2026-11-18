@@ -169,7 +169,7 @@ namespace PCFORGE_ValdezThiago_96VA.UI
                 : new string[0];
         }
 
-        public static IEnumerable<PasoGuia06AV> CasosDeUso(string claveModulo) => DatosGuia06AV.DeModulo(claveModulo);
+        public static IEnumerable<TemaManual06AV> CasosDeUso(string claveModulo) => ManualAyuda06AV.DeModulo(claveModulo);
 
         // Opciones de trabajo: botones y casillas visibles de la pantalla que tienen ayuda propia.
         public static List<TemaAyuda06AV> OpcionesPantalla(Control pantalla)

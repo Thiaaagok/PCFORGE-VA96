@@ -9,10 +9,10 @@
 --  Qué prueba, en orden:
 --    1. El DELETE físico está bloqueado por el trigger.
 --    2. Alta            → 1 versión, Act = 1.
---    3. Modificación    → 2 versiones, la vieja Act = 0.
+--    3. Modificación    → 2 versiones (vigente + anterior).
 --    4. Reserva de stock→ NO genera versión (solo toca StockReservado).
---    5. Baja lógica     → versión nueva con Bit_Lo_Bo = 1.
---    6. Activar versión → restaura valores y agrega una versión más.
+--    5. Baja lógica     → sigue habiendo 2: se descarta la más vieja.
+--    6. Activar versión → intercambia vigente y anterior (siguen siendo 2).
 --
 --  Los pasos 2 a 6 corren dentro de una transacción que se DESHACE al final:
 --  la base queda como estaba.
@@ -88,7 +88,7 @@ EXEC sp_Componentes_BajaLogica @Codigo = N'ZZ-TEST-BITACORA';
 SELECT 'Tras la baja' AS Paso, IdHistorico, Stock, PrecioUnitario, Bit_Lo_Bo, Act
 FROM   Componentes_C WHERE CodigoComponente = @Cod
 ORDER BY IdHistorico;
-PRINT '  Esperado: 3 filas; la vigente (Act = 1) con Bit_Lo_Bo = 1.';
+PRINT '  Esperado: 2 filas (la del alta se descartó); la vigente con Bit_Lo_Bo = 1.';
 
 IF EXISTS (SELECT 1 FROM Componentes WHERE Codigo = @Cod AND Bit_Lo_Bo = 1)
     PRINT '  ✓ OK: el componente quedó dado de baja, no borrado.';
@@ -96,26 +96,31 @@ ELSE
     PRINT '  ✗ FALLÓ: el componente no quedó dado de baja.';
 
 PRINT '';
-PRINT '=== 6) Restaurar la versión del alta ===============================';
+PRINT '=== 6) Restaurar la versión anterior ==============================';
 DECLARE @IdPrimera INT =
-        (SELECT MIN(IdHistorico) FROM Componentes_C WHERE CodigoComponente = @Cod);
+        (SELECT IdHistorico FROM Componentes_C WHERE CodigoComponente = @Cod AND Act = 0);
 
 EXEC sp_ComponentesC_Activar @IdHistorico = @IdPrimera;
 
 SELECT 'Estado del componente' AS Paso, Codigo, Descripcion, PrecioUnitario,
        Stock, StockReservado, Bit_Lo_Bo
 FROM   Componentes WHERE Codigo = @Cod;
-PRINT '  Esperado: precio 100.00, stock 10, Bit_Lo_Bo = 0 (la restauración';
-PRINT '  también deshace la baja, porque esa versión estaba vigente).';
+PRINT '  Esperado: precio 150.00, stock 25, Bit_Lo_Bo = 0 (vuelve la versión';
+PRINT '  previa a la baja, así que la baja se deshace).';
 
 SELECT 'Bitácora final' AS Paso, IdHistorico, Fecha, Hora, Stock,
        PrecioUnitario, Bit_Lo_Bo, Act
 FROM   Componentes_C WHERE CodigoComponente = @Cod
 ORDER BY IdHistorico;
-PRINT '  Esperado: 4 filas; solo la última con Act = 1. Nada se pisó.';
+PRINT '  Esperado: 2 filas; la restaurada con Act = 1 y la de la baja con Act = 0.';
 
 PRINT '';
-PRINT '=== 7) Un solo registro vigente por componente =====================';
+PRINT '=== 7) Máximo dos versiones y una sola vigente por componente ======';
+IF EXISTS (SELECT CodigoComponente FROM Componentes_C
+           GROUP BY CodigoComponente HAVING COUNT(*) > 2)
+    PRINT '  ✗ FALLÓ: hay componentes con más de dos versiones.';
+ELSE
+    PRINT '  ✓ OK: ningún componente tiene más de dos versiones.';
 IF EXISTS (SELECT CodigoComponente FROM Componentes_C WHERE Act = 1
            GROUP BY CodigoComponente HAVING COUNT(*) > 1)
     PRINT '  ✗ FALLÓ: hay componentes con más de una versión vigente.';

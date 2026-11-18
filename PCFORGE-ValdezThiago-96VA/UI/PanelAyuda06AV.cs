@@ -8,7 +8,7 @@ using System.Windows.Forms;
 namespace PCFORGE_ValdezThiago_96VA.UI
 {
     // Panel lateral "Ayuda de esta pantalla": para qué sirve, los casos de uso que se
-    // trabajan ahí (pasos de la guía) y las opciones de trabajo visibles con su explicación.
+    // trabajan ahí (temas del manual de ayuda) y las opciones de trabajo visibles con su explicación.
     [DesignerCategory("Code")]
     internal sealed class PanelAyuda06AV : UserControl, IIdiomaAplicable06AV
     {
@@ -31,10 +31,11 @@ namespace PCFORGE_ValdezThiago_96VA.UI
         private string _clave;
         private Control _pantalla;
         private bool _modoActivo;
+        private string _temaGuia;
 
         public event Action CerrarSolicitado;
         public event Action ModoMouseSolicitado;
-        public event Action GuiaSolicitada;
+        public event Action<string> GuiaSolicitada;   // id del tema del manual (o null)
 
         public PanelAyuda06AV()
         {
@@ -50,7 +51,7 @@ namespace PCFORGE_ValdezThiago_96VA.UI
             _btnCerrar.FlatAppearance.BorderSize = 0;
             _btnCerrar.Click += (s, e) => CerrarSolicitado?.Invoke();
             _btnModo.Click += (s, e) => ModoMouseSolicitado?.Invoke();
-            _btnGuia.Click += (s, e) => GuiaSolicitada?.Invoke();
+            _btnGuia.Click += (s, e) => GuiaSolicitada?.Invoke(_temaGuia);
             _cuerpo.Resize += (s, e) => AjustarAnchos();
             Paint += (s, e) => { using (var p = new Pen(Tema.Borde)) e.Graphics.DrawLine(p, 0, 0, 0, Height); };
 
@@ -91,14 +92,16 @@ namespace PCFORGE_ValdezThiago_96VA.UI
             _cuerpo.Controls.Add(Parrafo(AyudaContextual06AV.DescripcionPantalla(_clave), Tema.Texto, Tema.FuenteRegular, 2));
 
             var casos = AyudaContextual06AV.CasosDeUso(_clave).ToList();
-            foreach (PasoGuia06AV cu in casos)
+            _temaGuia = casos.FirstOrDefault()?.Id;
+            foreach (TemaManual06AV cu in casos)
             {
-                _cuerpo.Controls.Add(Parrafo(cu.Codigo + " · " + cu.Titulo, Tema.Primario, Tema.FuenteSubtit, 12));
-                _cuerpo.Controls.Add(Parrafo(t.Obtener("guia_rol") + ": " + cu.Rol, Tema.TextoSuave, Tema.FuenteMini, 0));
-                string[] pasos = cu.Pasos;
-                for (int i = 0; i < pasos.Length; i++)
-                    _cuerpo.Controls.Add(Parrafo((i + 1) + ".  " + pasos[i], Tema.Texto, Tema.FuenteRegular, 3));
-                _cuerpo.Controls.Add(Parrafo("✔  " + cu.Resultado, Tema.Exito, Tema.FuenteRegular, 4));
+                _cuerpo.Controls.Add(Parrafo(cu.TituloCompleto, Tema.Primario, Tema.FuenteSubtit, 12));
+                if (!string.IsNullOrEmpty(cu.Rol))
+                    _cuerpo.Controls.Add(Parrafo(t.Obtener("man_quien") + ": " + cu.Rol, Tema.TextoSuave, Tema.FuenteMini, 0));
+                for (int i = 0; i < cu.Pasos.Count; i++)
+                    _cuerpo.Controls.Add(Parrafo((i + 1) + ".  " + cu.Pasos[i].Titulo + ". " + cu.Pasos[i].Detalle, Tema.Texto, Tema.FuenteRegular, 3));
+                if (!string.IsNullOrEmpty(cu.Resultado))
+                    _cuerpo.Controls.Add(Parrafo("✔  " + cu.Resultado, Tema.Exito, Tema.FuenteRegular, 4));
             }
 
             string[] propios = AyudaContextual06AV.PasosPantalla(_clave);

@@ -60,8 +60,8 @@ namespace Instalador
 
             rbReparar = CrearOpcion("Reparar / actualizar (recomendado)", 112, true);
             var dReparar = CrearDescripcion(
-                "Vuelve a ejecutar los scripts: crea tablas y procedimientos que falten y actualiza " +
-                "los existentes. Conserva todos los datos.", 136);
+                "Vuelve a copiar el sistema y a ejecutar los scripts: crea lo que falte y actualiza " +
+                "lo existente. Conserva todos los datos.", 136);
 
             rbReinstalar = CrearOpcion("Reinstalar desde cero", 184, false);
             var dReinstalar = CrearDescripcion(

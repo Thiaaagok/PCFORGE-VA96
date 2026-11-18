@@ -17,7 +17,7 @@ namespace Instalador
         private Label lblTitulo;
         private ProgressBar barra;
         private TextBox txtLog;
-        private CheckBox chkAbrir;
+        private CheckBox chkAcceso;
         private Button btnFinalizar;
 
         private string _exeApp;
@@ -73,11 +73,11 @@ namespace Instalador
                 BorderStyle = BorderStyle.FixedSingle
             };
 
-            chkAbrir = new CheckBox
+            chkAcceso = new CheckBox
             {
-                Text = "Abrir el sistema al finalizar",
-                Checked = _opciones.AbrirAlFinalizar,
-                Visible = _opciones.AbrirAlFinalizar,
+                Text = "Crear acceso directo en el Escritorio",
+                Checked = _opciones.CrearAccesoDirecto,
+                Visible = _opciones.CrearAccesoDirecto,
                 AutoSize = true,
                 Location = new Point(26, 380),
                 Enabled = false
@@ -99,7 +99,7 @@ namespace Instalador
             btnFinalizar.FlatAppearance.BorderSize = 0;
             btnFinalizar.Click += (s, e) => Finalizar();
 
-            Controls.AddRange(new Control[] { lblTitulo, barra, txtLog, chkAbrir, btnFinalizar });
+            Controls.AddRange(new Control[] { lblTitulo, barra, txtLog, chkAcceso, btnFinalizar });
         }
 
         private void Log(string mensaje)
@@ -116,34 +116,17 @@ namespace Instalador
         {
             try
             {
+                if (_opciones.InstalarSistema)
+                {
+                    lblTitulo.Text = "Instalando el sistema...";
+                    _exeApp = await Task.Run(() => InstaladorSistema06AV.Instalar(_opciones.CarpetaInstalacion, Log));
+                    lblTitulo.Text = "Preparando la base de datos...";
+                }
+
                 ResultadoInstalacion06AV resultado =
                     await Task.Run(() => new InstaladorBLL06AV(_opciones).Ejecutar(Log));
 
-                var exes = ConfiguradorApp06AV.LocalizarTodosExeApp();
-                _exeApp = exes.Count > 0 ? exes[0] : null;
-                if (_exeApp != null)
-                {
-                    int escritos = 0;
-                    foreach (string exe in exes)
-                        if (ConfiguradorApp06AV.EscribirCadenaConexion(exe, _opciones.CadenaBaseDatos()))
-                            escritos++;
-                    Log(escritos > 0
-                        ? $"Configuración de la aplicación actualizada ({escritos} ubicación/es)."
-                        : "Aviso: no se pudo actualizar la configuración de la aplicación.");
-
-                    if (_opciones.CrearAccesoDirecto)
-                    {
-                        string lnk = ConfiguradorApp06AV.CrearAccesoDirectoEscritorio(_exeApp);
-                        Log(lnk != null
-                            ? "Acceso directo creado en el Escritorio."
-                            : "Aviso: no se pudo crear el acceso directo en el Escritorio.");
-                    }
-                }
-                else
-                {
-                    Log("Aviso: no se encontró el ejecutable del sistema para configurarlo.");
-                    chkAbrir.Checked = false;
-                }
+                ConfigurarAplicacion();
 
                 Exito = true;
                 Log("");
@@ -162,30 +145,65 @@ namespace Instalador
                 Log("ERROR: " + ex.Message);
                 lblTitulo.Text = "La operación falló";
                 lblTitulo.ForeColor = Error;
-                chkAbrir.Checked = false;
+                chkAcceso.Checked = false;
                 btnFinalizar.Text = "Cerrar";
             }
             finally
             {
                 barra.Style = ProgressBarStyle.Continuous;
                 barra.Value = 100;
-                chkAbrir.Enabled = Exito && _exeApp != null && _opciones.AbrirAlFinalizar;
+                chkAcceso.Enabled = Exito && _exeApp != null;
+                if (_exeApp == null) chkAcceso.Checked = false;
                 btnFinalizar.Enabled = true;
                 ControlBox = true;
             }
         }
 
+        // Deja el sistema instalado apuntando a la base, con accesos del menú Inicio y
+        // registrado en "Aplicaciones instaladas".
+        private void ConfigurarAplicacion()
+        {
+            if (_exeApp == null)
+            {
+                // Modo solo-base: se usa lo que ya esté instalado, si existe.
+                string instalado = InstaladorSistema06AV.RutaExe(_opciones.CarpetaInstalacion);
+                if (!System.IO.File.Exists(instalado))
+                {
+                    Log("Aviso: el sistema no está instalado en " + _opciones.CarpetaInstalacion + ".");
+                    return;
+                }
+                _exeApp = instalado;
+            }
+
+            Log(ConfiguradorApp06AV.EscribirCadenaConexion(_exeApp, _opciones.CadenaBaseDatos())
+                ? "Conexión del sistema configurada."
+                : "Aviso: no se pudo escribir la configuración del sistema en " + System.IO.Path.GetDirectoryName(_exeApp) + ".");
+
+            if (_opciones.InstalarSistema)
+            {
+                string carpeta = System.IO.Path.GetDirectoryName(_exeApp);
+                InstaladorSistema06AV.CrearAccesosMenuInicio(carpeta, Log);
+                InstaladorSistema06AV.RegistrarDesinstalacion(carpeta, Log);
+            }
+        }
+
         private void Finalizar()
         {
-            if (Exito && _opciones.AbrirAlFinalizar && chkAbrir.Checked && _exeApp != null)
+            if (Exito && _exeApp != null && chkAcceso.Visible && chkAcceso.Checked)
+            {
+                string lnk = InstaladorSistema06AV.CrearAccesoEscritorio(System.IO.Path.GetDirectoryName(_exeApp), out string error);
+                if (lnk == null)
+                    MessageBox.Show(this, "No se pudo crear el acceso directo en el Escritorio:\n" + error,
+                        "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
+            if (Exito && _exeApp != null && _opciones.AbrirAlFinalizar &&
+                MessageBox.Show(this, "La instalación terminó correctamente.\n\n¿Querés abrir el sistema ahora?",
+                    "Instalación completada", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 try
                 {
-                    Process.Start(new ProcessStartInfo(_exeApp)
-                    {
-                        WorkingDirectory = System.IO.Path.GetDirectoryName(_exeApp),
-                        UseShellExecute = true
-                    });
+                    InstaladorSistema06AV.AbrirSistema(_exeApp);
                 }
                 catch (Exception ex)
                 {

@@ -6,7 +6,8 @@
 --  sin stock libre: la demanda por tipo se mide sobre todos), los datos
 --  de rotación que la BLL usa para detectar el stock parado y armar los
 --  combos:
---    FechaAlta            primer registro en Componentes_C (alta).
+--    FechaAlta            registro más viejo en Componentes_C (la bitácora guarda
+--                         solo vigente + anterior: es aproximada, último recurso).
 --    UltimoIngreso        última recepción de mercadería (FacturaCompra).
 --    UltimaVenta          última venta no anulada que lo incluye.
 --    VendidasVentana      unidades vendidas en los últimos @DiasVentana días.

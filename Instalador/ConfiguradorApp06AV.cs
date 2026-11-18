@@ -43,6 +43,13 @@ namespace Instalador
             }
             catch {  }
 
+            // Instalado con el setup (PCFORGE_Setup.iss instala en Archivos de programa\PCFORGE).
+            foreach (Environment.SpecialFolder pf in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 })
+            {
+                try { Agregar(Path.Combine(Environment.GetFolderPath(pf), "PCFORGE", NombreExeApp)); }
+                catch {  }
+            }
+
             return lista;
         }
 
@@ -63,6 +70,12 @@ namespace Instalador
                     File.WriteAllText(Path.Combine(dir, ArchivoConexion), connectionString);
                     ok = true;
                 }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Carpeta protegida (p. ej. Archivos de programa) sin permisos de administrador:
+                // el .exe.config tampoco se podrá escribir, se informa al usuario.
+                return false;
             }
             catch {  }
 
@@ -116,20 +129,28 @@ namespace Instalador
             return ok;
         }
 
-        public static string CrearAccesoDirectoEscritorio(
-            string exePath, string nombreAcceso = "PCFORGE-ValdezThiago-96VA")
+        public static string CrearAccesoDirectoEscritorio(string exePath, out string error) =>
+            CrearAcceso(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                        "PCFORGE-ValdezThiago-96VA.lnk"), exePath, null, "Sistema PCFORGE-ValdezThiago-96VA", out error);
+
+        // Crea un acceso directo .lnk con WScript.Shell. Devuelve la ruta o null (con el motivo en error).
+        public static string CrearAcceso(string rutaLnk, string destino, string argumentos, string descripcion, out string error)
         {
+            error = null;
             try
             {
-                if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+                if (string.IsNullOrEmpty(destino) || !File.Exists(destino))
+                {
+                    error = "no se encontró " + destino;
                     return null;
-
-                string escritorio = Environment.GetFolderPath(
-                    Environment.SpecialFolder.DesktopDirectory);
-                string rutaLnk = Path.Combine(escritorio, nombreAcceso + ".lnk");
+                }
 
                 Type tipoShell = Type.GetTypeFromProgID("WScript.Shell");
-                if (tipoShell == null) return null;
+                if (tipoShell == null)
+                {
+                    error = "Windows Script Host no está disponible";
+                    return null;
+                }
 
                 object shell = Activator.CreateInstance(tipoShell);
                 object acceso = tipoShell.InvokeMember("CreateShortcut",
@@ -139,16 +160,18 @@ namespace Instalador
                 void Set(string prop, object valor) => tipoAcceso.InvokeMember(
                     prop, BindingFlags.SetProperty, null, acceso, new object[] { valor });
 
-                Set("TargetPath", exePath);
-                Set("WorkingDirectory", Path.GetDirectoryName(exePath));
-                Set("Description", "Sistema PCFORGE-ValdezThiago-96VA");
-                Set("IconLocation", exePath + ", 0");
+                Set("TargetPath", destino);
+                if (!string.IsNullOrEmpty(argumentos)) Set("Arguments", argumentos);
+                Set("WorkingDirectory", Path.GetDirectoryName(destino));
+                Set("Description", descripcion ?? "");
+                Set("IconLocation", destino + ", 0");
 
                 tipoAcceso.InvokeMember("Save", BindingFlags.InvokeMethod, null, acceso, null);
-                return rutaLnk;
+                return File.Exists(rutaLnk) ? rutaLnk : null;
             }
-            catch
+            catch (Exception ex)
             {
+                error = (ex.InnerException ?? ex).Message;
                 return null;
             }
         }

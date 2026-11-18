@@ -1,6 +1,7 @@
 using PCFORGE_ValdezThiago_96VA.UI;
 using SER;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -70,7 +71,7 @@ namespace PCFORGE_ValdezThiago_96VA
                 _panelAyuda = new PanelAyuda06AV { Visible = false };
                 _panelAyuda.CerrarSolicitado += CerrarPanelAyuda;
                 _panelAyuda.ModoMouseSolicitado += () => _modoAyuda.Alternar();
-                _panelAyuda.GuiaSolicitada += () => { CerrarPanelAyuda(); NavegarAModulo("menu_guia"); };
+                _panelAyuda.GuiaSolicitada += id => { CerrarPanelAyuda(); AbrirGuia(id); };
                 pnlShell.Controls.Add(_panelAyuda);
                 panelPrincipal.BringToFront();
             }
@@ -93,6 +94,71 @@ namespace PCFORGE_ValdezThiago_96VA
             _modoAyuda?.OcultarGlobo();
             if (_panelAyuda != null && _panelAyuda.Visible)
                 BeginInvoke(new Action(() => _panelAyuda.Mostrar(_claveActiva, PantallaActual(), _modoAyuda.Activo)));
+        }
+
+        // ── Recorridos guiados ─────────────────────────────────────────────────
+
+        public const string RecorridoBienvenida = "bienvenida";
+
+        /// <summary>Elementos de la ventana principal que el recorrido de bienvenida ilumina.</summary>
+        public Control ElementoGuia(string id)
+        {
+            switch (id)
+            {
+                case "usuario": return panel4;
+                case "inicio": return _itemInicio;
+                case "menu": return _vistaMenu;
+                case "contraer": return btnToggleSidebar;
+                case "ayuda": return btnAyuda;
+                case "avisos": return btnAvisos;
+                case "tema": return btnTema;
+                case "idioma": return btnIdioma;
+                case "salir": return btnCerrarSesion;
+                case "guia": return ItemSidebarPorClave("menu_grp_ayuda");
+                default: return null;
+            }
+        }
+
+        /// <summary>Abre el centro de ayuda; si se indica, en ese tema del manual.</summary>
+        public void AbrirGuia(string temaId)
+        {
+            NavegarAModulo("menu_guia");
+            if (!string.IsNullOrEmpty(temaId) && PantallaActual() is Controles.GuiaProcesosControl06AV guia)
+                guia.SeleccionarTema(temaId);
+        }
+
+        /// <summary>Inicia un recorrido: "bienvenida", "pn1" o "pn2".</summary>
+        public void IniciarRecorrido(string cual)
+        {
+            List<PasoCoach06AV> pasos;
+            switch (cual)
+            {
+                case "pn1": pasos = CoachMarks06AV.TourPN1(); break;
+                case "pn2": pasos = CoachMarks06AV.TourPN2(); break;
+                default: pasos = CoachMarks06AV.TourBienvenida(); break;
+            }
+            CerrarPanelAyuda();
+            _modoAyuda?.Desactivar();
+            string usuario = UsuarioSesion06AV.Instancia().UsuarioActual?.Login;
+            new CoachMarks06AV(this, pasos, () => CoachMarks06AV.MarcarVisto(cual, usuario)).Iniciar();
+        }
+
+        // El primer ingreso de cada usuario muestra el recorrido de bienvenida (una sola vez por usuario en esta PC).
+        private void ProgramarBienvenida()
+        {
+            Shown += (s, e) =>
+            {
+                string usuario = UsuarioSesion06AV.Instancia().UsuarioActual?.Login;
+                if (CoachMarks06AV.YaVisto(RecorridoBienvenida, usuario)) return;
+                var espera = new Timer { Interval = 700 };
+                espera.Tick += (s2, e2) =>
+                {
+                    espera.Stop();
+                    espera.Dispose();
+                    if (!IsDisposed && Visible) IniciarRecorrido(RecorridoBienvenida);
+                };
+                espera.Start();
+            };
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)

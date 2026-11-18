@@ -18,6 +18,7 @@ namespace Instalador
     {
         private const string TablaMarca = "PruebaInstalador06AV";
 
+
         private static readonly string[] ProcedimientosClave =
         {
             "sp_ObtenerPatentesUsuario", "sp_Componentes_ReservarStock"
@@ -43,9 +44,9 @@ namespace Instalador
 
             try
             {
-                List<string> scripts = InstaladorMPP06AV.ListarScripts(opciones.CarpetaScripts);
+                List<ScriptSql06AV> scripts = InstaladorMPP06AV.ListarScripts(opciones.CarpetaScripts);
                 Comprobar(log, scripts.Count > 0, $"Scripts a ejecutar: {scripts.Count}");
-                Comprobar(log, scripts.All(s => !Path.GetFileName(s).StartsWith("99_")),
+                Comprobar(log, scripts.All(s => !s.Nombre.StartsWith("99_")),
                     "Los scripts agregados/destructivos 99_* quedan excluidos");
 
                 dal.EliminarBaseDatos();

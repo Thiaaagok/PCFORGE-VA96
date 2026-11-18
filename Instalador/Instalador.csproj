@@ -13,6 +13,7 @@
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <TargetFrameworkProfile />
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -36,6 +37,8 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
@@ -47,6 +50,7 @@
     <Compile Include="InstaladorBLL06AV.cs" />
     <Compile Include="InstaladorTest06AV.cs" />
     <Compile Include="ConfiguradorApp06AV.cs" />
+    <Compile Include="InstaladorSistema06AV.cs" />
     <Compile Include="FrmConexion06AV.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -60,143 +64,146 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Los scripts .sql se copian a la carpeta "Scripts" junto al ejecutable. -->
-    <Content Include="..\SQL\00_schema.sql">
-      <Link>Scripts\00_schema.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\01_sp_ObtenerPatentesUsuario.sql">
-      <Link>Scripts\01_sp_ObtenerPatentesUsuario.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\02_seed_patentes_familias_rol.sql">
-      <Link>Scripts\02_seed_patentes_familias_rol.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\03_seed_roles_gerente_usuariogeneral.sql">
-      <Link>Scripts\03_seed_roles_gerente_usuariogeneral.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\04_seed_patentes_gestion_roles_familias.sql">
-      <Link>Scripts\04_seed_patentes_gestion_roles_familias.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\05_sp_patentes_crud.sql">
-      <Link>Scripts\05_sp_patentes_crud.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\06_seed_patente_gestion_patentes.sql">
-      <Link>Scripts\06_seed_patente_gestion_patentes.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\07_sp_roles.sql">
-      <Link>Scripts\07_sp_roles.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\08_sp_familias.sql">
-      <Link>Scripts\08_sp_familias.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\09_sp_patentes_lectura.sql">
-      <Link>Scripts\09_sp_patentes_lectura.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\10_seed_admin.sql">
-      <Link>Scripts\10_seed_admin.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\11_seed_patente_reparar_integridad.sql">
-      <Link>Scripts\11_seed_patente_reparar_integridad.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\20_pcfactory_clientes.sql">
-      <Link>Scripts\20_pcfactory_clientes.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\21_pcfactory_componentes.sql">
-      <Link>Scripts\21_pcfactory_componentes.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\23_pcfactory_proveedores.sql">
-      <Link>Scripts\23_pcfactory_proveedores.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\24_pcfactory_lineas.sql">
-      <Link>Scripts\24_pcfactory_lineas.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\25_pcfactory_produccion.sql">
-      <Link>Scripts\25_pcfactory_produccion.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\26_pcfactory_compras.sql">
-      <Link>Scripts\26_pcfactory_compras.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\27_pcfactory_patentes.sql">
-      <Link>Scripts\27_pcfactory_patentes.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\28_pcfactory_modelos.sql">
-      <Link>Scripts\28_pcfactory_modelos.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\29_pcfactory_bitacora_componentes.sql">
-      <Link>Scripts\29_pcfactory_bitacora_componentes.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\30_seed_demo_pcfactory.sql">
-      <Link>Scripts\30_seed_demo_pcfactory.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\31_pcfactory_patentes_compras.sql">
-      <Link>Scripts\31_pcfactory_patentes_compras.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\32_sincronizar_patentes.sql">
-      <Link>Scripts\32_sincronizar_patentes.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\33_liberar_lineas_trabadas.sql">
-      <Link>Scripts\33_liberar_lineas_trabadas.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\34_recepcion_parcial.sql">
-      <Link>Scripts\34_recepcion_parcial.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\35_computadora_modelo_origen.sql">
-      <Link>Scripts\35_computadora_modelo_origen.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\36_reporte_ventas_produccion.sql">
-      <Link>Scripts\36_reporte_ventas_produccion.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\37_serializacion.sql">
-      <Link>Scripts\37_serializacion.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\38_cotizacion_precio_por_item.sql">
-      <Link>Scripts\38_cotizacion_precio_por_item.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\39_compatibilidad_componentes.sql">
-      <Link>Scripts\39_compatibilidad_componentes.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\40_compras_pn2.sql">
-      <Link>Scripts\40_compras_pn2.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\41_notificaciones.sql">
-      <Link>Scripts\41_notificaciones.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\SQL\42_reporte_combos_stock_parado.sql">
-      <Link>Scripts\42_reporte_combos_stock_parado.sql</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <!-- Los scripts .sql se EMBEBEN en el .exe (recurso "Scripts.<archivo>"): el instalador
+         no necesita ninguna carpeta junto al ejecutable. Para sumar un script, agregarlo acá. -->
+    <EmbeddedResource Include="..\SQL\00_schema.sql">
+      <LogicalName>Scripts.00_schema.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\01_sp_ObtenerPatentesUsuario.sql">
+      <LogicalName>Scripts.01_sp_ObtenerPatentesUsuario.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\02_seed_patentes_familias_rol.sql">
+      <LogicalName>Scripts.02_seed_patentes_familias_rol.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\03_seed_roles_gerente_usuariogeneral.sql">
+      <LogicalName>Scripts.03_seed_roles_gerente_usuariogeneral.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\04_seed_patentes_gestion_roles_familias.sql">
+      <LogicalName>Scripts.04_seed_patentes_gestion_roles_familias.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\05_sp_patentes_crud.sql">
+      <LogicalName>Scripts.05_sp_patentes_crud.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\06_seed_patente_gestion_patentes.sql">
+      <LogicalName>Scripts.06_seed_patente_gestion_patentes.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\07_sp_roles.sql">
+      <LogicalName>Scripts.07_sp_roles.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\08_sp_familias.sql">
+      <LogicalName>Scripts.08_sp_familias.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\09_sp_patentes_lectura.sql">
+      <LogicalName>Scripts.09_sp_patentes_lectura.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\10_seed_admin.sql">
+      <LogicalName>Scripts.10_seed_admin.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\11_seed_patente_reparar_integridad.sql">
+      <LogicalName>Scripts.11_seed_patente_reparar_integridad.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\20_pcfactory_clientes.sql">
+      <LogicalName>Scripts.20_pcfactory_clientes.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\21_pcfactory_componentes.sql">
+      <LogicalName>Scripts.21_pcfactory_componentes.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\23_pcfactory_proveedores.sql">
+      <LogicalName>Scripts.23_pcfactory_proveedores.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\24_pcfactory_lineas.sql">
+      <LogicalName>Scripts.24_pcfactory_lineas.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\25_pcfactory_produccion.sql">
+      <LogicalName>Scripts.25_pcfactory_produccion.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\26_pcfactory_compras.sql">
+      <LogicalName>Scripts.26_pcfactory_compras.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\27_pcfactory_patentes.sql">
+      <LogicalName>Scripts.27_pcfactory_patentes.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\28_pcfactory_modelos.sql">
+      <LogicalName>Scripts.28_pcfactory_modelos.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\29_pcfactory_bitacora_componentes.sql">
+      <LogicalName>Scripts.29_pcfactory_bitacora_componentes.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\30_seed_demo_pcfactory.sql">
+      <LogicalName>Scripts.30_seed_demo_pcfactory.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\31_pcfactory_patentes_compras.sql">
+      <LogicalName>Scripts.31_pcfactory_patentes_compras.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\32_sincronizar_patentes.sql">
+      <LogicalName>Scripts.32_sincronizar_patentes.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\33_liberar_lineas_trabadas.sql">
+      <LogicalName>Scripts.33_liberar_lineas_trabadas.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\34_recepcion_parcial.sql">
+      <LogicalName>Scripts.34_recepcion_parcial.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\35_computadora_modelo_origen.sql">
+      <LogicalName>Scripts.35_computadora_modelo_origen.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\36_reporte_ventas_produccion.sql">
+      <LogicalName>Scripts.36_reporte_ventas_produccion.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\37_serializacion.sql">
+      <LogicalName>Scripts.37_serializacion.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\38_cotizacion_precio_por_item.sql">
+      <LogicalName>Scripts.38_cotizacion_precio_por_item.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\39_compatibilidad_componentes.sql">
+      <LogicalName>Scripts.39_compatibilidad_componentes.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\40_compras_pn2.sql">
+      <LogicalName>Scripts.40_compras_pn2.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\41_notificaciones.sql">
+      <LogicalName>Scripts.41_notificaciones.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\SQL\42_reporte_combos_stock_parado.sql">
+      <LogicalName>Scripts.42_reporte_combos_stock_parado.sql</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.manifest" />
+  </ItemGroup>
+  <!-- El sistema viaja DENTRO del instalador: se compila primero (ProjectReference sin
+       referenciar su ensamblado) y el target EmpaquetarSistema06AV arma Sistema.zip con
+       el .exe, el .config, las DLL y la carpeta Resources de su salida. -->
+  <ItemGroup>
+    <ProjectReference Include="..\PCFORGE-ValdezThiago-96VA\PCFORGE-ValdezThiago-96VA.csproj">
+      <Project>{2F1AEE91-F459-4DC7-9288-4C72E02E14CA}</Project>
+      <Name>PCFORGE-ValdezThiago-96VA</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(IntermediateOutputPath)Sistema.zip">
+      <LogicalName>Sistema.zip</LogicalName>
+      <Visible>false</Visible>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="EmpaquetarSistema06AV" AfterTargets="ResolveProjectReferences" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <SistemaBin06AV>$(MSBuildProjectDirectory)\..\PCFORGE-ValdezThiago-96VA\bin\$(Configuration)\</SistemaBin06AV>
+      <SistemaStaging06AV>$(MSBuildProjectDirectory)\$(IntermediateOutputPath)SistemaStaging\</SistemaStaging06AV>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(SistemaBin06AV)PCFORGE-ValdezThiago-96VA.exe')"
+           Text="No se encontró $(SistemaBin06AV)PCFORGE-ValdezThiago-96VA.exe. Compilá el proyecto del sistema en $(Configuration) antes que el instalador." />
+    <ItemGroup>
+      <SistemaRaiz06AV Include="$(SistemaBin06AV)PCFORGE-ValdezThiago-96VA.exe;$(SistemaBin06AV)PCFORGE-ValdezThiago-96VA.exe.config;$(SistemaBin06AV)*.dll" />
+      <SistemaRecursos06AV Include="$(SistemaBin06AV)Resources\**\*" />
+    </ItemGroup>
+    <RemoveDir Directories="$(SistemaStaging06AV)" />
+    <Copy SourceFiles="@(SistemaRaiz06AV)" DestinationFolder="$(SistemaStaging06AV)" />
+    <Copy SourceFiles="@(SistemaRecursos06AV)" DestinationFiles="@(SistemaRecursos06AV->'$(SistemaStaging06AV)Resources\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <ZipDirectory SourceDirectory="$(SistemaStaging06AV)" DestinationFile="$(MSBuildProjectDirectory)\$(IntermediateOutputPath)Sistema.zip" Overwrite="true" />
+  </Target>
 </Project>

@@ -4,7 +4,7 @@
 ;  Arma un único setup.exe con:
 ;    {app}\PCFORGE-ValdezThiago-96VA.exe + DLLs + Resources   (la aplicación)
 ;    {app}\Instalador.exe                                       (instalador / reinstalador de BD)
-;    {app}\Scripts\NN_*.sql                                     (scripts de base de datos)
+;    (los scripts NN_*.sql van embebidos dentro de Instalador.exe)
 ;
 ;  Al terminar de copiar archivos ejecuta Instalador.exe (elevado):
 ;    - Primera vez: crea la base y la deja lista (usuario admin / Admin1234).
@@ -61,13 +61,10 @@ Source: "{#AppBin}\Resources\*";            DestDir: "{app}\Resources"; Flags: i
 ; Instalador / reinstalador de base de datos
 Source: "{#InstBin}\Instalador.exe";        DestDir: "{app}"; Flags: ignoreversion
 Source: "{#InstBin}\Instalador.exe.config"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
-; Scripts SQL: se toman de SQL\ (no de bin) para no arrastrar archivos viejos.
-; Los 99_* son agregados manuales / destructivos y nunca se distribuyen.
-Source: "SQL\??_*.sql"; Excludes: "99_*"; DestDir: "{app}\Scripts"; Flags: ignoreversion
 
 [InstallDelete]
-; Scripts de una versión anterior que ya no existan en esta.
-Type: files; Name: "{app}\Scripts\*.sql"
+; Versiones anteriores copiaban los scripts sueltos; ahora van embebidos en Instalador.exe.
+Type: filesandordirs; Name: "{app}\Scripts"
 
 [Icons]
 Name: "{group}\{#MyAppName}";                         Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"

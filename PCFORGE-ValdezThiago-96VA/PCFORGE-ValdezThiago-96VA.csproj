@@ -157,11 +157,9 @@
     <Compile Include="Controles\HomeControl06AV.cs" />
     <Compile Include="Controles\GuiaProcesosControl06AV.cs" />
     <Compile Include="UI\CoachMarks06AV.cs" />
-    <Compile Include="UI\DatosGuia06AV.cs" />
+    <Compile Include="UI\ManualAyuda06AV.cs" />
     <Compile Include="UI\AyudaContextual06AV.cs" />
-    <Compile Include="UI\GloboAyuda06AV.cs">
-      <SubType>Form</SubType>
-    </Compile>
+    <Compile Include="UI\GloboAyuda06AV.cs" />
     <Compile Include="UI\ModoAyudaMouse06AV.cs" />
     <Compile Include="UI\PanelAyuda06AV.cs" />
     <Compile Include="Controles\FacturasControl.cs" />
@@ -216,6 +214,10 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="FRMMain.Avisos.cs">
+      <DependentUpon>FRMMain.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FRMMain.Ventana.cs">
       <DependentUpon>FRMMain.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
@@ -345,6 +347,15 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Resources\Idiomas\en.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Ayuda\manual.es.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Ayuda\manual.en.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Ayuda\manual.pt.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Idiomas\es.json">

@@ -3,17 +3,25 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace PCFORGE_ValdezThiago_96VA.UI
 {
-    /// <summary>Un paso del recorrido guiado: que resaltar y que explicar.</summary>
+    /// <summary>Un paso del recorrido guiado: qué resaltar y qué explicar.</summary>
     internal sealed class PasoCoach06AV
     {
         public string Titulo;
         public string Texto;
-        public string ClaveModulo;   // navega el sistema a esta pantalla (o null)
-        public string Objetivo;      // "sidebar" | "contenido" | "centro"
+        public string ClaveModulo;   // navega el sistema a esta pantalla antes de mostrar el paso (o null)
+        // Qué se resalta:
+        //   "centro"          nada (tarjeta centrada)
+        //   "sidebar"         el ítem del menú de ClaveModulo
+        //   "contenido"       el área de trabajo
+        //   "boton:<clave>"   el botón de la pantalla actual cuyo texto es la clave i18n (si no está, el área de trabajo)
+        //   "main:<id>"       un elemento de la ventana principal (FRMMain.ElementoGuia)
+        public string Objetivo;
 
         public PasoCoach06AV(string titulo, string texto, string claveModulo, string objetivo)
         {
@@ -25,114 +33,66 @@ namespace PCFORGE_ValdezThiago_96VA.UI
     }
 
     /// <summary>
-    /// Sistema de "coach marks": resalta con un marco el control real (item del menu
-    /// o el area de contenido) y muestra un globo con la explicacion y botones
-    /// Anterior / Siguiente / Cerrar. Va navegando el sistema pantalla por pantalla.
-    /// Se dibuja con el tema activo. No depende del control que lo lanza: usa dos
-    /// ventanas propias (el marco, click-through, y el globo).
+    /// Recorrido guiado ("coach marks"): oscurece la ventana, deja iluminado el elemento
+    /// real que se explica (con un borde de color) y muestra al lado una tarjeta con el
+    /// título, «N de M», la explicación y los botones Saltar recorrido / Atrás / Siguiente.
+    /// Va navegando el sistema pantalla por pantalla. Teclado: → o Enter avanza, ← vuelve,
+    /// Esc sale. Usa el tema y el idioma activos.
     /// </summary>
     internal sealed class CoachMarks06AV
     {
+        private const int Margen = 6;     // aire alrededor del elemento iluminado
+        private const int Separacion = 14; // distancia entre el elemento y la tarjeta
+
         private readonly FRMMain _main;
         private readonly List<PasoCoach06AV> _pasos;
+        private readonly Action _alCerrar;
         private int _i;
 
+        private Velo06AV _velo;
         private Marco06AV _marco;
-        private Form _globo;
-        private Label _lblTitulo, _lblTexto, _lblPaso;
-        private Button _btnAtras, _btnSig, _btnCerrar;
+        private Tarjeta06AV _tarjeta;
         private Control _objetivo;
         private bool _cerrado;
 
-        public CoachMarks06AV(FRMMain main, List<PasoCoach06AV> pasos)
+        private static CoachMarks06AV _activo;
+
+        public CoachMarks06AV(FRMMain main, List<PasoCoach06AV> pasos, Action alCerrar = null)
         {
             _main = main;
             _pasos = pasos;
+            _alCerrar = alCerrar;
         }
 
         public void Iniciar()
         {
             if (_main == null || _pasos == null || _pasos.Count == 0) return;
-            ConstruirVentanas();
-            _i = 0;
-            Mostrar();
-            _globo.Show(_main);
+            _activo?.Cerrar();
+            _activo = this;
+
+            _velo = new Velo06AV();
+            _marco = new Marco06AV();
+            _tarjeta = new Tarjeta06AV();
+            _tarjeta.Saltar += Cerrar;
+            _tarjeta.Atras += () => { if (_i > 0) { _i--; Mostrar(); } };
+            _tarjeta.Siguiente += () => { if (_i >= _pasos.Count - 1) Cerrar(); else { _i++; Mostrar(); } };
+
+            _velo.Show(_main);
+            _marco.Show(_main);
+            _tarjeta.Show(_main);
+
             _main.Move += Seguir;
             _main.Resize += Seguir;
-            _main.FormClosed += (s, e) => Cerrar();
+            _main.FormClosed += AlCerrarMain;
+            Tema.TemaChanged += Mostrar;
+
+            _i = 0;
+            Mostrar();
         }
 
-        // -- construccion de las ventanas -----------------------------------------------------
+        private void AlCerrarMain(object sender, FormClosedEventArgs e) => Cerrar();
 
-        private void ConstruirVentanas()
-        {
-            _marco = new Marco06AV();
-
-            _globo = new Form
-            {
-                FormBorderStyle = FormBorderStyle.None,
-                StartPosition = FormStartPosition.Manual,
-                ShowInTaskbar = false,
-                TopMost = true,
-                Width = 400,
-                Height = 210,
-                BackColor = Tema.FondoPanel
-            };
-            _globo.Paint += (s, e) =>
-            {
-                var r = new Rectangle(0, 0, _globo.Width - 1, _globo.Height - 1);
-                using (var p = new Pen(Tema.Primario, 2)) e.Graphics.DrawRectangle(p, r);
-            };
-
-            _lblTitulo = new Label
-            {
-                Dock = DockStyle.Top, Height = 38, Padding = new Padding(18, 12, 18, 2),
-                Font = Tema.FuenteSubtit, ForeColor = Tema.Primario, BackColor = Tema.FondoPanel
-            };
-            _lblTexto = new Label
-            {
-                Dock = DockStyle.Fill, Padding = new Padding(18, 2, 18, 8),
-                Font = Tema.FuenteRegular, ForeColor = Tema.Texto, BackColor = Tema.FondoPanel
-            };
-
-            var barra = new Panel { Dock = DockStyle.Bottom, Height = 54, Padding = new Padding(14, 8, 14, 12), BackColor = Tema.FondoPanel };
-            _lblPaso = new Label
-            {
-                Dock = DockStyle.Left, Width = 90, TextAlign = ContentAlignment.MiddleLeft,
-                Font = Tema.FuenteMini, ForeColor = Tema.TextoSuave, BackColor = Tema.FondoPanel
-            };
-            var botones = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Right, FlowDirection = FlowDirection.LeftToRight, WrapContents = false,
-                AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = Tema.FondoPanel
-            };
-            _btnCerrar = NuevoBoton("Cerrar");
-            _btnAtras = NuevoBoton("Anterior");
-            _btnSig = NuevoBoton("Siguiente");
-            _btnCerrar.Click += (s, e) => Cerrar();
-            _btnAtras.Click += (s, e) => { if (_i > 0) { _i--; Mostrar(); } };
-            _btnSig.Click += (s, e) => { if (_i >= _pasos.Count - 1) Cerrar(); else { _i++; Mostrar(); } };
-            botones.Controls.Add(_btnCerrar);
-            botones.Controls.Add(_btnAtras);
-            botones.Controls.Add(_btnSig);
-            barra.Controls.Add(botones);
-            barra.Controls.Add(_lblPaso);
-
-            _globo.Controls.Add(_lblTexto);
-            _globo.Controls.Add(barra);
-            _globo.Controls.Add(_lblTitulo);
-        }
-
-        private static Button NuevoBoton(string texto)
-        {
-            return new Button
-            {
-                Text = texto, AutoSize = false, Width = 104, Height = 32,
-                Margin = new Padding(6, 0, 0, 0), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand
-            };
-        }
-
-        // -- logica del recorrido -------------------------------------------------------------
+        // -- lógica del recorrido -------------------------------------------------------------
 
         private void Mostrar()
         {
@@ -145,85 +105,191 @@ namespace PCFORGE_ValdezThiago_96VA.UI
                 try { _main.NavegarAModulo(p.ClaveModulo); } catch { }
             }
 
-            _objetivo = ResolverObjetivo(p);
+            var t = GestorIdioma06AV.Instancia;
+            _tarjeta.Cargar(p.Titulo, p.Texto, t.Obtener("tour_contador", _i + 1, _pasos.Count),
+                            _i > 0, _i >= _pasos.Count - 1);
 
-            _lblTitulo.Text = p.Titulo;
-            _lblTexto.Text = p.Texto;
-            _lblPaso.Text = "Paso " + (_i + 1) + " de " + _pasos.Count;
-            _btnAtras.Enabled = _i > 0;
-            _btnSig.Text = _i >= _pasos.Count - 1 ? "Finalizar" : "Siguiente";
-            Tema.AplicarBotonSecundario(_btnCerrar);
-            if (_btnAtras.Enabled) Tema.AplicarBotonSecundario(_btnAtras);
-            else Tema.AplicarBotonDeshabilitado(_btnAtras);
-            Tema.AplicarBotonPrimario(_btnSig);
-
-            Ubicar();
+            // la pantalla recién abierta termina de acomodarse antes de buscar el elemento
+            _main.BeginInvoke((Action)(() =>
+            {
+                if (_cerrado) return;
+                _objetivo = ResolverObjetivo(p);
+                Ubicar();
+            }));
         }
 
         private Control ResolverObjetivo(PasoCoach06AV p)
         {
             try
             {
-                if (p.Objetivo == "sidebar" && !string.IsNullOrEmpty(p.ClaveModulo))
-                    return _main.ItemSidebarPorClave(p.ClaveModulo);
-                if (p.Objetivo == "contenido")
+                string obj = p.Objetivo ?? "centro";
+                if (obj == "sidebar" && !string.IsNullOrEmpty(p.ClaveModulo))
+                {
+                    var item = _main.ItemSidebarPorClave(p.ClaveModulo);
+                    if (Visible(item)) return item;
+                    var padre = (item as ItemSidebar06AV)?.Padre;
+                    return Visible(padre) ? padre : null;
+                }
+                if (obj == "contenido")
                     return _main.AreaContenido();
+                if (obj.StartsWith("boton:"))
+                    return BuscarBoton(_main.AreaContenido(), GestorIdioma06AV.Instancia.Obtener(obj.Substring(6)))
+                           ?? _main.AreaContenido();
+                if (obj.StartsWith("main:"))
+                {
+                    var c = _main.ElementoGuia(obj.Substring(5));
+                    return Visible(c) ? c : null;
+                }
             }
             catch { }
             return null;
         }
 
+        private static bool Visible(Control c) => c != null && !c.IsDisposed && c.Visible && c.Width > 2 && c.Height > 2;
+
+        /// <summary>El control visible de la pantalla cuyo texto es el indicado (prefiere botones).</summary>
+        private static Control BuscarBoton(Control raiz, string texto)
+        {
+            string buscado = GestorIdioma06AV.NormalizarTexto(texto);
+            if (raiz == null || buscado.Length == 0) return null;
+            Control otro = null;
+            var pila = new Stack<Control>();
+            pila.Push(raiz);
+            while (pila.Count > 0)
+            {
+                var c = pila.Pop();
+                foreach (Control h in c.Controls) pila.Push(h);
+                if (c == raiz || !Visible(c)) continue;
+                if (!string.Equals(GestorIdioma06AV.NormalizarTexto(c.Text), buscado, StringComparison.OrdinalIgnoreCase)) continue;
+                if (c is ButtonBase) return c;
+                if (otro == null && !(c is Label)) otro = c;
+            }
+            return otro;
+        }
+
         private void Seguir(object sender, EventArgs e)
         {
-            if (!_cerrado) Ubicar();
+            if (_cerrado) return;
+            bool minimizada = _main.WindowState == FormWindowState.Minimized;
+            _velo.Visible = _tarjeta.Visible = !minimizada;
+            if (minimizada) { _marco.Visible = false; return; }
+            Ubicar();
         }
 
         private void Ubicar()
         {
+            if (_cerrado || _main.WindowState == FormWindowState.Minimized) return;
+            Rectangle ventana = _main.RectangleToScreen(_main.ClientRectangle);
+            _velo.Bounds = ventana;
+
             Rectangle? foco = null;
-            if (_objetivo != null && !_objetivo.IsDisposed && _objetivo.Visible && _objetivo.Width > 2 && _objetivo.Height > 2)
+            if (Visible(_objetivo))
             {
-                try { foco = _objetivo.RectangleToScreen(_objetivo.ClientRectangle); }
+                try
+                {
+                    Rectangle r = _objetivo.RectangleToScreen(_objetivo.ClientRectangle);
+                    r.Inflate(Margen, Margen);
+                    r.Intersect(ventana);
+                    if (r.Width > 4 && r.Height > 4) foco = r;
+                }
                 catch { foco = null; }
             }
 
-            Rectangle wa = Screen.FromControl(_main).WorkingArea;
+            _velo.Hueco(foco.HasValue ? new Rectangle(foco.Value.X - ventana.X, foco.Value.Y - ventana.Y, foco.Value.Width, foco.Value.Height) : (Rectangle?)null);
 
             if (foco.HasValue)
             {
                 Rectangle f = foco.Value;
-                int pad = 8;
-                _marco.Bounds = new Rectangle(f.X - pad, f.Y - pad, f.Width + 2 * pad, f.Height + 2 * pad);
+                var aro = Rectangle.Inflate(f, 3, 3);
+                _marco.Bounds = aro;
                 _marco.ActualizarMarco(3);
                 if (!_marco.Visible) _marco.Show(_main);
-                _marco.BringToFront();
-
-                int bx = Math.Min(Math.Max(f.X, wa.Left + 8), wa.Right - _globo.Width - 8);
-                int by = f.Bottom + 14;
-                if (by + _globo.Height > wa.Bottom) by = f.Y - _globo.Height - 14;
-                if (by < wa.Top + 8) by = wa.Top + 8;
-                _globo.Location = new Point(bx, by);
+                _tarjeta.Location = PosicionTarjeta(f, ventana, _tarjeta.Size);
             }
             else
             {
                 _marco.Visible = false;
-                _globo.Location = new Point(wa.Left + (wa.Width - _globo.Width) / 2,
-                                            wa.Top + (wa.Height - _globo.Height) / 2);
+                _tarjeta.Location = new Point(ventana.Left + (ventana.Width - _tarjeta.Width) / 2,
+                                              ventana.Top + (ventana.Height - _tarjeta.Height) / 2);
             }
 
-            if (_globo.Visible) _globo.BringToFront();
+            _marco.BringToFront();
+            _tarjeta.BringToFront();
+            _tarjeta.Invalidate();
         }
 
-        private void Cerrar()
+        /// <summary>A la derecha, abajo, a la izquierda o arriba del elemento: el primer lugar donde entra.</summary>
+        private static Point PosicionTarjeta(Rectangle f, Rectangle v, Size t)
+        {
+            int Ajustar(int valor, int min, int max) => Math.Max(min, Math.Min(valor, max));
+            int xMin = v.Left + 8, xMax = v.Right - t.Width - 8;
+            int yMin = v.Top + 8, yMax = v.Bottom - t.Height - 8;
+
+            var candidatos = new[]
+            {
+                new Point(f.Right + Separacion, Ajustar(f.Top, yMin, yMax)),             // derecha
+                new Point(Ajustar(f.Left, xMin, xMax), f.Bottom + Separacion),           // abajo
+                new Point(f.Left - Separacion - t.Width, Ajustar(f.Top, yMin, yMax)),    // izquierda
+                new Point(Ajustar(f.Left, xMin, xMax), f.Top - Separacion - t.Height),   // arriba
+            };
+            foreach (var p in candidatos)
+                if (p.X >= xMin && p.X <= xMax && p.Y >= yMin && p.Y <= yMax) return p;
+
+            // el elemento ocupa casi toda la ventana (el área de trabajo): la tarjeta va adentro, arriba a la derecha
+            return new Point(Ajustar(f.Right - t.Width - 24, xMin, xMax), Ajustar(f.Top + 24, yMin, yMax));
+        }
+
+        public void Cerrar()
         {
             if (_cerrado) return;
             _cerrado = true;
-            try { _main.Move -= Seguir; _main.Resize -= Seguir; } catch { }
-            try { if (_marco != null) { _marco.Close(); _marco.Dispose(); } } catch { }
-            try { if (_globo != null) { _globo.Close(); _globo.Dispose(); } } catch { }
+            if (_activo == this) _activo = null;
+            try { _main.Move -= Seguir; _main.Resize -= Seguir; _main.FormClosed -= AlCerrarMain; } catch { }
+            Tema.TemaChanged -= Mostrar;
+            foreach (Form f in new Form[] { _tarjeta, _marco, _velo })
+                try { if (f != null) { f.Close(); f.Dispose(); } } catch { }
+            try { if (!_main.IsDisposed) _main.Activate(); } catch { }
+            try { _alCerrar?.Invoke(); } catch { }
         }
 
-        // -- ventana del marco resaltador (click-through) -------------------------------------
+        // -- velo oscuro con el hueco del elemento iluminado ----------------------------------
+
+        private sealed class Velo06AV : Form
+        {
+            public Velo06AV()
+            {
+                FormBorderStyle = FormBorderStyle.None;
+                StartPosition = FormStartPosition.Manual;
+                ShowInTaskbar = false;
+                BackColor = Color.Black;
+                Opacity = 0.55;
+            }
+
+            protected override CreateParams CreateParams
+            {
+                get
+                {
+                    CreateParams cp = base.CreateParams;
+                    cp.ExStyle |= 0x08000000 | 0x80; // WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW
+                    return cp;
+                }
+            }
+
+            protected override bool ShowWithoutActivation => true;
+
+            public void Hueco(Rectangle? local)
+            {
+                var reg = new Region(new Rectangle(0, 0, Width, Height));
+                if (local.HasValue)
+                    using (GraphicsPath p = Pintura06AV.Redondeado(local.Value, 10))
+                        reg.Exclude(p);
+                var anterior = Region;
+                Region = reg;
+                anterior?.Dispose();
+            }
+        }
+
+        // -- borde de color alrededor del elemento (no recibe clics) --------------------------
 
         private sealed class Marco06AV : Form
         {
@@ -232,7 +298,6 @@ namespace PCFORGE_ValdezThiago_96VA.UI
                 FormBorderStyle = FormBorderStyle.None;
                 StartPosition = FormStartPosition.Manual;
                 ShowInTaskbar = false;
-                TopMost = true;
                 BackColor = Tema.Acento;
             }
 
@@ -247,57 +312,183 @@ namespace PCFORGE_ValdezThiago_96VA.UI
                 }
             }
 
-            protected override bool ShowWithoutActivation { get { return true; } }
+            protected override bool ShowWithoutActivation => true;
 
-            public void ActualizarMarco(int th)
+            public void ActualizarMarco(int grosor)
             {
                 int w = Width, h = Height;
-                if (w <= 2 * th || h <= 2 * th) return;
+                if (w <= 2 * grosor || h <= 2 * grosor) return;
                 BackColor = Tema.Acento;
-                int rad = 10;
-                using (GraphicsPath outer = Redondeado(new Rectangle(0, 0, w, h), rad))
-                using (GraphicsPath inner = Redondeado(new Rectangle(th, th, w - 2 * th, h - 2 * th), Math.Max(2, rad - th)))
+                using (GraphicsPath exterior = Pintura06AV.Redondeado(new Rectangle(0, 0, w, h), 12))
+                using (GraphicsPath interior = Pintura06AV.Redondeado(new Rectangle(grosor, grosor, w - 2 * grosor, h - 2 * grosor), 10))
                 {
-                    var reg = new Region(outer);
-                    reg.Exclude(inner);
+                    var reg = new Region(exterior);
+                    reg.Exclude(interior);
+                    var anterior = Region;
                     Region = reg;
+                    anterior?.Dispose();
                 }
-            }
-
-            private static GraphicsPath Redondeado(Rectangle r, int rad)
-            {
-                int d = Math.Max(2, rad * 2);
-                if (d > r.Width) d = r.Width;
-                if (d > r.Height) d = r.Height;
-                var p = new GraphicsPath();
-                p.AddArc(r.X, r.Y, d, d, 180, 90);
-                p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
-                p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-                p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
-                p.CloseFigure();
-                return p;
             }
         }
 
-        // -- definicion de los recorridos -----------------------------------------------------
+        // -- tarjeta con la explicación y los botones -----------------------------------------
 
-        // Textos en Resources\Idiomas: tour_pnN_MM_tit / tour_pnN_MM_txt (numeración G04).
+        private sealed class Tarjeta06AV : Form
+        {
+            private const int Ancho = 380;
+            private const int Pad = 18;
+
+            private readonly Label _lblTitulo = new Label { AutoSize = false, UseMnemonic = false };
+            private readonly Label _lblContador = new Label { AutoSize = false };
+            private readonly Label _lblTexto = new Label { AutoSize = false, UseMnemonic = false };
+            private readonly Label _lnkSaltar = new Label { AutoSize = true, Cursor = Cursors.Hand };
+            private readonly Button _btnAtras = new Button { Width = 92, Height = 34, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, TabStop = false };
+            private readonly Button _btnSig = new Button { Width = 104, Height = 34, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, TabStop = false };
+            private bool _hayAtras;
+
+            public event Action Saltar, Atras, Siguiente;
+
+            public Tarjeta06AV()
+            {
+                FormBorderStyle = FormBorderStyle.None;
+                StartPosition = FormStartPosition.Manual;
+                ShowInTaskbar = false;
+                KeyPreview = true;
+                Width = Ancho;
+                DoubleBuffered = true;
+                Controls.AddRange(new Control[] { _lblTitulo, _lblContador, _lblTexto, _lnkSaltar, _btnAtras, _btnSig });
+                _lnkSaltar.Click += (s, e) => Saltar?.Invoke();
+                _btnAtras.Click += (s, e) => { if (_hayAtras) Atras?.Invoke(); };
+                _btnSig.Click += (s, e) => Siguiente?.Invoke();
+                _lnkSaltar.MouseEnter += (s, e) => _lnkSaltar.Font = new Font(Tema.FuenteRegular, FontStyle.Underline);
+                _lnkSaltar.MouseLeave += (s, e) => _lnkSaltar.Font = Tema.FuenteRegular;
+            }
+
+            protected override bool ShowWithoutActivation => false;
+
+            protected override void OnKeyDown(KeyEventArgs e)
+            {
+                base.OnKeyDown(e);
+                if (e.KeyCode == Keys.Escape) Saltar?.Invoke();
+                else if (e.KeyCode == Keys.Right || e.KeyCode == Keys.Enter) Siguiente?.Invoke();
+                else if (e.KeyCode == Keys.Left && _hayAtras) Atras?.Invoke();
+                else return;
+                e.Handled = true;
+            }
+
+            protected override bool ProcessDialogKey(Keys keyData)
+            {
+                // Enter y las flechas no deben mover el foco entre los botones
+                if (keyData == Keys.Enter || keyData == Keys.Left || keyData == Keys.Right || keyData == Keys.Escape)
+                {
+                    OnKeyDown(new KeyEventArgs(keyData));
+                    return true;
+                }
+                return base.ProcessDialogKey(keyData);
+            }
+
+            public void Cargar(string titulo, string texto, string contador, bool hayAtras, bool esUltimo)
+            {
+                var t = GestorIdioma06AV.Instancia;
+                _hayAtras = hayAtras;
+                BackColor = Tema.FondoPanel;
+                foreach (Control c in Controls) c.BackColor = Tema.FondoPanel;
+
+                _lblContador.Text = contador;
+                _lblContador.Font = Tema.FuenteMini;
+                _lblContador.ForeColor = Tema.TextoSuave;
+
+                _lblTitulo.Text = titulo;
+                _lblTitulo.Font = Tema.FuenteSubtit;
+                _lblTitulo.ForeColor = Tema.TextoFuerte;
+
+                _lblTexto.Text = texto;
+                _lblTexto.Font = Tema.FuenteRegular;
+                _lblTexto.ForeColor = Tema.Texto;
+
+                _lnkSaltar.Text = t.Obtener("tour_saltar");
+                _lnkSaltar.Font = Tema.FuenteRegular;
+                _lnkSaltar.ForeColor = Tema.Primario;
+                _lnkSaltar.Visible = !esUltimo;
+
+                _btnAtras.Text = t.Obtener("tour_atras");
+                _btnSig.Text = t.Obtener(esUltimo ? "tour_finalizar" : "tour_siguiente");
+                if (hayAtras) Tema.AplicarBotonSecundario(_btnAtras); else Tema.AplicarBotonDeshabilitado(_btnAtras);
+                Tema.AplicarBotonPrimario(_btnSig);
+
+                Acomodar();
+            }
+
+            private void Acomodar()
+            {
+                const TextFormatFlags envolver = TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix | TextFormatFlags.TextBoxControl;
+                Size contador = TextRenderer.MeasureText(_lblContador.Text, _lblContador.Font);
+                _lblContador.Bounds = new Rectangle(Ancho - Pad - contador.Width, Pad + 3, contador.Width, contador.Height);
+
+                int anchoTitulo = Ancho - 2 * Pad - contador.Width - 10;
+                int altoTitulo = TextRenderer.MeasureText(_lblTitulo.Text, _lblTitulo.Font, new Size(anchoTitulo, int.MaxValue), envolver).Height;
+                _lblTitulo.Bounds = new Rectangle(Pad, Pad, anchoTitulo, altoTitulo);
+
+                int anchoTexto = Ancho - 2 * Pad;
+                int altoTexto = TextRenderer.MeasureText(_lblTexto.Text, _lblTexto.Font, new Size(anchoTexto, int.MaxValue), envolver).Height;
+                _lblTexto.Bounds = new Rectangle(Pad, _lblTitulo.Bottom + 8, anchoTexto, altoTexto + 2);
+
+                int yBotones = _lblTexto.Bottom + 16;
+                _btnSig.Location = new Point(Ancho - Pad - _btnSig.Width, yBotones);
+                _btnAtras.Location = new Point(_btnSig.Left - 8 - _btnAtras.Width, yBotones);
+                _lnkSaltar.Location = new Point(_btnAtras.Left - 16 - _lnkSaltar.PreferredWidth,
+                                                yBotones + (_btnSig.Height - _lnkSaltar.PreferredHeight) / 2);
+                Height = yBotones + _btnSig.Height + Pad;
+
+                var anterior = Region;
+                using (GraphicsPath p = Pintura06AV.Redondeado(new Rectangle(0, 0, Width, Height), 12))
+                    Region = new Region(p);
+                anterior?.Dispose();
+                Invalidate();
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+                Pintura06AV.Calidad(e.Graphics);
+                Pintura06AV.Borde(e.Graphics, new Rectangle(1, 1, Width - 3, Height - 3), 11, Tema.Acento, 2f);
+            }
+        }
+
+        // -- recorridos -----------------------------------------------------------------------
+
+        // Textos en Resources\Idiomas: tour_xxx_NN_tit / tour_xxx_NN_txt.
         private static PasoCoach06AV Paso(string clave, string modulo, string objetivo)
         {
             var t = GestorIdioma06AV.Instancia;
             return new PasoCoach06AV(t.Obtener(clave + "_tit"), t.Obtener(clave + "_txt"), modulo, objetivo);
         }
 
+        /// <summary>Recorrido de bienvenida: dónde está cada cosa en la pantalla principal.</summary>
+        public static List<PasoCoach06AV> TourBienvenida() => new List<PasoCoach06AV>
+        {
+            Paso("tour_bv_01", "menu_inicio", "main:usuario"),
+            Paso("tour_bv_02", "menu_inicio", "main:inicio"),
+            Paso("tour_bv_03", "menu_inicio", "main:menu"),
+            Paso("tour_bv_04", "menu_inicio", "main:contraer"),
+            Paso("tour_bv_05", "menu_inicio", "contenido"),
+            Paso("tour_bv_06", "menu_inicio", "main:ayuda"),
+            Paso("tour_bv_07", "menu_inicio", "main:avisos"),
+            Paso("tour_bv_08", "menu_inicio", "main:tema"),
+            Paso("tour_bv_09", "menu_inicio", "main:idioma"),
+            Paso("tour_bv_10", "menu_inicio", "main:guia")
+        };
+
         public static List<PasoCoach06AV> TourPN1() => new List<PasoCoach06AV>
         {
             Paso("tour_pn1_01", null, "centro"),
             Paso("tour_pn1_02", "pcf_menu_clientes", "sidebar"),
-            Paso("tour_pn1_03", "pcf_menu_clientes", "contenido"),
+            Paso("tour_pn1_03", "pcf_menu_clientes", "boton:nuevo"),
             Paso("tour_pn1_04", "pcf_menu_ventas", "sidebar"),
-            Paso("tour_pn1_05", "pcf_menu_ventas", "contenido"),
+            Paso("tour_pn1_05", "pcf_menu_ventas", "boton:pcf_nueva_venta"),
             Paso("tour_pn1_06", "pcf_menu_ventas", "contenido"),
             Paso("tour_pn1_07", "pcf_menu_produccion", "sidebar"),
-            Paso("tour_pn1_08", "pcf_menu_produccion", "contenido"),
+            Paso("tour_pn1_08", "pcf_menu_produccion", "boton:pcf_nueva_orden"),
             Paso("tour_pn1_09", "pcf_menu_entregas", "sidebar"),
             Paso("tour_pn1_10", "pcf_menu_entregas", "contenido"),
             Paso("tour_pn1_11", null, "centro")
@@ -307,14 +498,42 @@ namespace PCFORGE_ValdezThiago_96VA.UI
         {
             Paso("tour_pn2_01", null, "centro"),
             Paso("tour_pn2_02", "pcf_menu_compras", "sidebar"),
-            Paso("tour_pn2_03", "pcf_menu_compras", "contenido"),
+            Paso("tour_pn2_03", "pcf_menu_compras", "boton:pcf_nueva_orden"),
             Paso("tour_pn2_04", "pcf_menu_proveedores", "sidebar"),
-            Paso("tour_pn2_05", "pcf_menu_proveedores", "contenido"),
+            Paso("tour_pn2_05", "pcf_menu_proveedores", "boton:nuevo"),
             Paso("tour_pn2_06", "pcf_menu_compras", "sidebar"),
-            Paso("tour_pn2_07", "pcf_menu_compras", "contenido"),
-            Paso("tour_pn2_08", "pcf_menu_compras", "contenido"),
-            Paso("tour_pn2_09", "pcf_menu_compras", "contenido"),
+            Paso("tour_pn2_07", "pcf_menu_compras", "boton:pcf_pedir_cotizacion"),
+            Paso("tour_pn2_08", "pcf_menu_compras", "boton:pcf_aprobar"),
+            Paso("tour_pn2_09", "pcf_menu_compras", "boton:pcf_recibir_insumos"),
             Paso("tour_pn2_10", null, "centro")
         };
+
+        // -- "ya lo vio": se recuerda por usuario en esta PC ----------------------------------
+
+        private static string ArchivoVistos =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PCFORGE", "recorridos_vistos.txt");
+
+        public static bool YaVisto(string recorrido, string usuario)
+        {
+            if (string.IsNullOrEmpty(usuario)) return true;
+            try
+            {
+                string linea = recorrido + "|" + usuario;
+                return File.Exists(ArchivoVistos) &&
+                       File.ReadAllLines(ArchivoVistos).Any(l => string.Equals(l.Trim(), linea, StringComparison.OrdinalIgnoreCase));
+            }
+            catch { return true; }
+        }
+
+        public static void MarcarVisto(string recorrido, string usuario)
+        {
+            if (string.IsNullOrEmpty(usuario) || YaVisto(recorrido, usuario)) return;
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(ArchivoVistos));
+                File.AppendAllText(ArchivoVistos, recorrido + "|" + usuario + Environment.NewLine);
+            }
+            catch { }
+        }
     }
 }
