@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Instalador
@@ -26,10 +28,18 @@ namespace Instalador
 
         public OpcionesInstalacion06AV Opciones { get; private set; }
 
+        // Estado de la base elegida, leído mientras se prueba la conexión (así no hay
+        // tiempos muertos sin ventana entre este formulario y el siguiente).
+        public bool BaseExiste { get; private set; }
+        public int TablasExistentes { get; private set; }
+        public int UsuariosExistentes { get; private set; }
+        public string CarpetaBackups { get; private set; }
+
         public FrmConexion06AV()
         {
             ConstruirUI();
-            Load += (s, e) => DetectarInstancias();
+            // La ventana aparece enseguida y la búsqueda corre en segundo plano.
+            Shown += async (s, e) => await DetectarInstanciasAsync();
         }
 
         private void ConstruirUI()
@@ -54,7 +64,7 @@ namespace Instalador
 
             var lblIntro = new Label
             {
-                Text = "Elegí la instancia de SQL Server donde querés instalar / conectarte a la base.",
+                Text = "Elegí la instancia de SQL Server de este equipo o escribí un servidor remoto.",
                 ForeColor = TextoSuave,
                 AutoSize = true,
                 Location = new Point(26, 58)
@@ -84,7 +94,7 @@ namespace Instalador
                 Cursor = Cursors.Hand
             };
             btnDetectar.FlatAppearance.BorderColor = Color.FromArgb(189, 189, 189);
-            btnDetectar.Click += (s, e) => DetectarInstancias();
+            btnDetectar.Click += async (s, e) => await DetectarInstanciasAsync();
 
             lblEstado = new Label
             {
@@ -203,41 +213,55 @@ namespace Instalador
             lblPassword.Enabled = txtPassword.Enabled = sql;
         }
 
-        private void DetectarInstancias()
-        {
-            Cursor = Cursors.WaitCursor;
-            btnDetectar.Enabled = false;
-            lblEstado.Text = "Buscando instancias...";
-            Application.DoEvents();
+        private bool _ocupado;
 
+        private void Ocupado(bool ocupado, string estado)
+        {
+            _ocupado = ocupado;
+            UseWaitCursor = ocupado;
+            btnDetectar.Enabled = btnContinuar.Enabled = cboInstancia.Enabled = !ocupado;
+            lblEstado.Text = estado ?? "";
+        }
+
+        private async Task DetectarInstanciasAsync()
+        {
+            if (_ocupado) return;
+            Ocupado(true, "Buscando instancias de SQL Server en este equipo...");
+            string seleccion = cboInstancia.Text;
             try
             {
-                List<string> instancias = InstaladorDAL06AV.DetectarInstancias();
-                string seleccion = cboInstancia.Text;
+                var resultado = await Task.Run(() =>
+                {
+                    List<string> encontradas = InstaladorDAL06AV.DetectarInstancias();
+                    var pruebas = encontradas.Select(i => Task.Run(() => new { Nombre = i, Ok = InstaladorDAL06AV.InstanciaResponde(i) })).ToArray();
+                    Task.WaitAll(pruebas);
+                    return pruebas.Select(t => t.Result).ToList();
+                });
 
+                if (IsDisposed) return;
                 cboInstancia.Items.Clear();
-                cboInstancia.Items.AddRange(instancias.ToArray());
+                foreach (var r in resultado.OrderByDescending(r => r.Ok))
+                    cboInstancia.Items.Add(r.Nombre);
 
-                if (!string.IsNullOrWhiteSpace(seleccion) && instancias.Contains(seleccion))
+                int responden = resultado.Count(r => r.Ok);
+                if (!string.IsNullOrWhiteSpace(seleccion))
                     cboInstancia.Text = seleccion;
                 else if (cboInstancia.Items.Count > 0)
                     cboInstancia.SelectedIndex = 0;
 
-                lblEstado.Text = $"Se detectaron {instancias.Count} instancia(s).";
+                Ocupado(false, resultado.Count == 0
+                    ? "No se encontró SQL Server en este equipo. Instalalo o escribí el nombre de un servidor remoto."
+                    : $"Se encontraron {resultado.Count} instancia(s); {responden} responde(n).");
             }
             catch (Exception ex)
             {
-                lblEstado.Text = "No se pudieron detectar instancias: " + ex.Message;
-            }
-            finally
-            {
-                btnDetectar.Enabled = true;
-                Cursor = Cursors.Default;
+                if (!IsDisposed) Ocupado(false, "No se pudieron detectar instancias: " + ex.Message);
             }
         }
 
-        private void Continuar()
+        private async void Continuar()
         {
+            if (_ocupado) return;
             string instancia = (cboInstancia.Text ?? "").Trim();
             if (instancia.Length == 0)
             {
@@ -248,6 +272,12 @@ namespace Instalador
 
             string baseDatos = (txtBaseDatos.Text ?? "").Trim();
             if (baseDatos.Length == 0) baseDatos = "IngSoftValdezAlegre";
+            if (!System.Text.RegularExpressions.Regex.IsMatch(baseDatos, @"^[A-Za-z0-9_]+$"))
+            {
+                MessageBox.Show(this, "El nombre de la base solo puede tener letras, números y guion bajo.",
+                    "Configuración", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
             var op = new OpcionesInstalacion06AV
             {
@@ -261,26 +291,34 @@ namespace Instalador
                 op.Contrasenia = txtPassword.Text;
             }
 
-            Cursor = Cursors.WaitCursor;
-            btnContinuar.Enabled = false;
-            lblEstado.Text = "Probando conexión...";
-            Application.DoEvents();
+            Ocupado(true, "Probando conexión con " + instancia + "...");
             try
             {
-                new InstaladorDAL06AV(op).ProbarConexion();
+                await Task.Run(() =>
+                {
+                    var dal = new InstaladorDAL06AV(op);
+                    dal.ProbarConexion();
+                    BaseExiste = dal.ExisteBaseDatos();
+                    if (BaseExiste)
+                    {
+                        TablasExistentes = dal.ContarTablas();
+                        UsuariosExistentes = dal.ContarUsuarios();
+                        try { CarpetaBackups = dal.CarpetaBackupServidor(); } catch {  }
+                    }
+                });
             }
             catch (Exception ex)
             {
-                lblEstado.Text = "";
+                if (IsDisposed) return;
+                Ocupado(false, "");
                 MessageBox.Show(this,
                     "No se pudo conectar a la instancia indicada:\n\n" + ex.Message,
                     "Error de conexión", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                btnContinuar.Enabled = true;
-                Cursor = Cursors.Default;
                 return;
             }
 
-            Cursor = Cursors.Default;
+            if (IsDisposed) return;
+            Ocupado(false, "");
             Opciones = op;
             DialogResult = DialogResult.OK;
             Close();

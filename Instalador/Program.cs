@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Threading;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -7,14 +9,75 @@ namespace Instalador
 {
     internal static class Program
     {
+        private const string NombreMutex = @"Local\PCFORGE_ValdezThiago_96VA_Instalador";
+
         [STAThread]
         private static int Main(string[] args)
         {
-            if (RequiereConsola(args))
-                return EjecutarConsola(args);
+            bool consola = RequiereConsola(args);
 
-            return EjecutarAsistente(args);
+            // Una sola instancia: si ya hay un instalador abierto se lo trae al frente y se sale.
+            using (var mutex = new Mutex(true, NombreMutex, out bool soyElPrimero))
+            {
+                if (!soyElPrimero)
+                {
+                    if (!consola && !TraerInstanciaAlFrente())
+                        MessageBox.Show("El instalador ya está abierto en otra ventana.", "Instalador",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return 3;
+                }
+
+                if (consola)
+                    return EjecutarConsola(args);
+
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+                Application.ThreadException += (s, e) => MostrarErrorInesperado(e.Exception);
+                AppDomain.CurrentDomain.UnhandledException += (s, e) => MostrarErrorInesperado(e.ExceptionObject as Exception);
+
+                try
+                {
+                    return EjecutarAsistente(args);
+                }
+                catch (Exception ex)
+                {
+                    MostrarErrorInesperado(ex);
+                    return 1;
+                }
+            }
         }
+
+        private static void MostrarErrorInesperado(Exception ex)
+        {
+            MessageBox.Show("Ocurrió un error inesperado en el instalador:\n\n" + (ex?.Message ?? "(sin detalle)") +
+                            "\n\nNo se hizo ningún cambio que no figure en el registro de la instalación.",
+                "Instalador", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        private static bool TraerInstanciaAlFrente()
+        {
+            try
+            {
+                Process actual = Process.GetCurrentProcess();
+                foreach (Process p in Process.GetProcessesByName(actual.ProcessName))
+                {
+                    if (p.Id == actual.Id || p.MainWindowHandle == IntPtr.Zero) continue;
+                    ShowWindow(p.MainWindowHandle, SW_RESTORE);
+                    return SetForegroundWindow(p.MainWindowHandle);
+                }
+            }
+            catch {  }
+            return false;
+        }
+
+        private const int SW_RESTORE = 9;
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
         private static bool RequiereConsola(string[] args)
         {
@@ -42,19 +105,20 @@ namespace Instalador
 
         private static int EjecutarAsistente(string[] args)
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-
             OpcionesInstalacion06AV opciones;
+            bool baseExiste;
+            int tablas, usuarios;
+            string carpetaBackups;
             using (var conexion = new FrmConexion06AV())
             {
                 if (conexion.ShowDialog() != DialogResult.OK)
                     return 2;
                 opciones = conexion.Opciones;
+                baseExiste = conexion.BaseExiste;
+                tablas = conexion.TablasExistentes;
+                usuarios = conexion.UsuariosExistentes;
+                carpetaBackups = conexion.CarpetaBackups;
             }
-
-            if (string.IsNullOrWhiteSpace(opciones.CarpetaScripts))
-                opciones.CarpetaScripts = CarpetaScriptsPorDefecto();
 
             // Lanzado por el setup (Inno Setup): el setup crea los accesos directos y abre el sistema.
             if (TieneFlag(args, "--desde-setup"))
@@ -63,30 +127,17 @@ namespace Instalador
                 opciones.AbrirAlFinalizar = false;
             }
 
-            var dal = new InstaladorDAL06AV(opciones);
-            try
+            if (baseExiste)
             {
-                if (dal.ExisteBaseDatos())
+                using (var modo = new FrmModo06AV(opciones, tablas, usuarios, carpetaBackups))
                 {
-                    string carpetaBackups = null;
-                    try { carpetaBackups = dal.CarpetaBackupServidor(); } catch {  }
-
-                    using (var modo = new FrmModo06AV(opciones, dal.ContarTablas(), dal.ContarUsuarios(), carpetaBackups))
-                    {
-                        if (modo.ShowDialog() != DialogResult.OK)
-                            return 2;
-                    }
-                }
-                else
-                {
-                    opciones.Modo = ModoInstalacion06AV.Instalar;
+                    if (modo.ShowDialog() != DialogResult.OK)
+                        return 2;
                 }
             }
-            catch (Exception ex)
+            else
             {
-                MessageBox.Show("No se pudo consultar la base de datos:\n\n" + ex.Message,
-                    "Instalador", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return 1;
+                opciones.Modo = ModoInstalacion06AV.Instalar;
             }
 
             using (var progreso = new FrmProgreso06AV(opciones))
@@ -122,7 +173,7 @@ namespace Instalador
                 Console.WriteLine($"  Servidor : {opciones.Servidor}");
                 Console.WriteLine($"  Base     : {opciones.BaseDatos}{(esTest ? " (modo prueba)" : "")}");
                 Console.WriteLine($"  Auth     : {(opciones.SeguridadIntegrada ? "Windows" : "SQL (" + opciones.Usuario + ")")}");
-                Console.WriteLine($"  Scripts  : {opciones.CarpetaScripts}");
+                Console.WriteLine($"  Scripts  : {(string.IsNullOrWhiteSpace(opciones.CarpetaScripts) ? "(embebidos en el instalador)" : opciones.CarpetaScripts)}");
                 if (!esTest)
                     Console.WriteLine($"  Modo     : {DescribirModo(opciones)}");
                 Console.WriteLine("======================================================");
@@ -188,7 +239,8 @@ namespace Instalador
             {
                 Servidor = ValorArg(args, "--servidor") ?? ".",
                 BaseDatos = ValorArg(args, "--bd") ?? "IngSoftValdezAlegre",
-                CarpetaScripts = ValorArg(args, "--scripts") ?? CarpetaScriptsPorDefecto()
+                // Sin --scripts se usan los .sql embebidos en el .exe.
+                CarpetaScripts = ValorArg(args, "--scripts")
             };
 
             string usuario = ValorArg(args, "--usuario");
@@ -227,28 +279,6 @@ namespace Instalador
             return o;
         }
 
-        private static string CarpetaScriptsPorDefecto()
-        {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-
-            string junto = Path.Combine(baseDir, "Scripts");
-            if (Directory.Exists(junto)) return junto;
-
-            try
-            {
-                var dir = new DirectoryInfo(baseDir);
-                for (int i = 0; i < 5 && dir != null; i++)
-                {
-                    string candidato = Path.Combine(dir.FullName, "SQL");
-                    if (Directory.Exists(candidato)) return candidato;
-                    dir = dir.Parent;
-                }
-            }
-            catch {  }
-
-            return junto;
-        }
-
         private static void Log(string mensaje) => Console.WriteLine(mensaje);
 
         private static string DescribirModo(OpcionesInstalacion06AV o)
@@ -279,7 +309,7 @@ namespace Instalador
             Console.WriteLine("  (sin parámetros)    Abre el asistente gráfico de instalación.");
             Console.WriteLine("  --servidor <inst>   Instancia de SQL Server (por defecto '.').");
             Console.WriteLine("  --bd <nombre>       Nombre de la base (por defecto IngSoftValdezAlegre).");
-            Console.WriteLine("  --scripts <ruta>    Carpeta con los .sql (por defecto \\Scripts junto al exe).");
+            Console.WriteLine("  --scripts <ruta>    Carpeta con los .sql (por defecto se usan los embebidos en el exe).");
             Console.WriteLine("  --usuario <user>    Usa SQL Auth con ese usuario (si no, Windows Auth).");
             Console.WriteLine("  --password <pass>   Contraseña para SQL Auth.");
             Console.WriteLine("  --modo <modo>       instalar | reparar | reinstalar | restaurar.");

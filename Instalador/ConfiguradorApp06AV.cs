@@ -43,6 +43,13 @@ namespace Instalador
             }
             catch {  }
 
+            // Instalado con el setup (PCFORGE_Setup.iss instala en Archivos de programa\PCFORGE).
+            foreach (Environment.SpecialFolder pf in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 })
+            {
+                try { Agregar(Path.Combine(Environment.GetFolderPath(pf), "PCFORGE", NombreExeApp)); }
+                catch {  }
+            }
+
             return lista;
         }
 
@@ -63,6 +70,12 @@ namespace Instalador
                     File.WriteAllText(Path.Combine(dir, ArchivoConexion), connectionString);
                     ok = true;
                 }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Carpeta protegida (p. ej. Archivos de programa) sin permisos de administrador:
+                // el .exe.config tampoco se podrá escribir, se informa al usuario.
+                return false;
             }
             catch {  }
 
@@ -119,17 +132,31 @@ namespace Instalador
         public static string CrearAccesoDirectoEscritorio(
             string exePath, string nombreAcceso = "PCFORGE-ValdezThiago-96VA")
         {
+            return CrearAccesoDirectoEscritorio(exePath, out _, nombreAcceso);
+        }
+
+        public static string CrearAccesoDirectoEscritorio(
+            string exePath, out string error, string nombreAcceso = "PCFORGE-ValdezThiago-96VA")
+        {
+            error = null;
             try
             {
                 if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+                {
+                    error = "no se encontró el ejecutable del sistema";
                     return null;
+                }
 
                 string escritorio = Environment.GetFolderPath(
                     Environment.SpecialFolder.DesktopDirectory);
                 string rutaLnk = Path.Combine(escritorio, nombreAcceso + ".lnk");
 
                 Type tipoShell = Type.GetTypeFromProgID("WScript.Shell");
-                if (tipoShell == null) return null;
+                if (tipoShell == null)
+                {
+                    error = "Windows Script Host no está disponible";
+                    return null;
+                }
 
                 object shell = Activator.CreateInstance(tipoShell);
                 object acceso = tipoShell.InvokeMember("CreateShortcut",
@@ -145,10 +172,11 @@ namespace Instalador
                 Set("IconLocation", exePath + ", 0");
 
                 tipoAcceso.InvokeMember("Save", BindingFlags.InvokeMethod, null, acceso, null);
-                return rutaLnk;
+                return File.Exists(rutaLnk) ? rutaLnk : null;
             }
-            catch
+            catch (Exception ex)
             {
+                error = (ex.InnerException ?? ex).Message;
                 return null;
             }
         }

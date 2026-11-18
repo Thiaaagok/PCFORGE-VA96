@@ -49,7 +49,8 @@ namespace Instalador
             var b = new SqlConnectionStringBuilder
             {
                 DataSource = Servidor,
-                InitialCatalog = catalogo
+                InitialCatalog = catalogo,
+                ConnectTimeout = 10
             };
 
             if (SeguridadIntegrada)

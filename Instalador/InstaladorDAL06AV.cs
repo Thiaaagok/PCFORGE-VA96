@@ -1,13 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Sql;
 using System.Data.SqlClient;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Win32;
 
 namespace Instalador
 {
@@ -20,6 +19,9 @@ namespace Instalador
             _opciones = opciones ?? throw new ArgumentNullException(nameof(opciones));
         }
 
+        // Instancias de SQL Server instaladas EN ESTE EQUIPO, leídas del registro (rápido y sin
+        // red). No se usa SqlDataSourceEnumerator: tarda 15 s o más, depende del servicio SQL
+        // Browser y bloqueaba la ventana. Un servidor remoto se puede escribir a mano.
         public static List<string> DetectarInstancias()
         {
             var lista = new List<string>();
@@ -31,45 +33,57 @@ namespace Instalador
                     lista.Add(s.Trim());
             }
 
-            try
+            foreach (RegistryView vista in new[] { RegistryView.Registry64, RegistryView.Registry32 })
             {
-                var psi = new ProcessStartInfo("sqllocaldb", "info")
+                try
                 {
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                using (Process p = Process.Start(psi))
-                {
-                    string salida = p.StandardOutput.ReadToEnd();
-                    p.WaitForExit(3000);
-                    foreach (string linea in salida.Split('\n'))
+                    using (RegistryKey hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, vista))
                     {
-                        string nombre = linea.Trim();
-                        if (nombre.Length > 0)
-                            Agregar("(localdb)\\" + nombre);
+                        using (RegistryKey k = hklm.OpenSubKey(@"SOFTWARE\Microsoft\Microsoft SQL Server"))
+                        {
+                            if (k?.GetValue("InstalledInstances") is string[] instancias)
+                                foreach (string nombre in instancias)
+                                    Agregar(string.Equals(nombre, "MSSQLSERVER", StringComparison.OrdinalIgnoreCase)
+                                        ? "." : ".\\" + nombre);
+                        }
+                        using (RegistryKey k = hklm.OpenSubKey(@"SOFTWARE\Microsoft\Microsoft SQL Server Local DB\Installed Versions"))
+                        {
+                            if (k != null && k.GetSubKeyNames().Length > 0)
+                                Agregar("(localdb)\\MSSQLLocalDB");
+                        }
                     }
                 }
+                catch {  }
             }
-            catch {  }
-
-            try
-            {
-                DataTable dt = SqlDataSourceEnumerator.Instance.GetDataSources();
-                foreach (DataRow r in dt.Rows)
-                {
-                    string servidor = r["ServerName"] as string;
-                    string instancia = r["InstanceName"] as string;
-                    if (string.IsNullOrEmpty(servidor)) continue;
-                    Agregar(string.IsNullOrEmpty(instancia) ? servidor : servidor + "\\" + instancia);
-                }
-            }
-            catch {  }
-
-            Agregar(".");
-            Agregar(".\\SQLEXPRESS");
 
             return lista;
+        }
+
+        // Prueba rápida (3 s) de si la instancia responde. Un login rechazado también cuenta como
+        // "responde": el servidor existe, solo faltan credenciales válidas.
+        public static bool InstanciaResponde(string servidor)
+        {
+            var b = new SqlConnectionStringBuilder
+            {
+                DataSource = servidor,
+                InitialCatalog = "master",
+                IntegratedSecurity = true,
+                ConnectTimeout = 3,
+                Pooling = false
+            };
+            try
+            {
+                using (var conn = new SqlConnection(b.ConnectionString)) conn.Open();
+                return true;
+            }
+            catch (SqlException ex) when (ex.Number == 18456 || ex.Number == 4060 || ex.Number == 18452)
+            {
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public void ProbarConexion()
